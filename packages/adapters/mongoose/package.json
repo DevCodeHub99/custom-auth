@@ -1,0 +1,23 @@
+{
+  "name": "@custom-auth/mongoose",
+  "version": "1.0.0",
+  "description": "Mongoose adapter for custom-auth",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  },
+  "dependencies": {
+    "mongoose": "^8.3.2"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "@custom-auth/core": "1.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
