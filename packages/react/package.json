@@ -33,5 +33,14 @@
   "files": [
     "dist",
     "src"
-  ]
+  ],
+  "author": "Vikas <vikasmukhiya1999>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevCodeHub99/custom-auth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DevCodeHub99/custom-auth/issues"
+  },
+  "homepage": "https://github.com/DevCodeHub99/custom-auth#readme"
 }

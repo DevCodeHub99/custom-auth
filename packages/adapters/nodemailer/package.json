@@ -1,7 +1,7 @@
 {
   "name": "@custom-auth/adapter-nodemailer",
   "version": "1.0.0",
-  "description": "SMTP email adapter for @custom-auth/core \u2014 works with Gmail, Zoho, Brevo, Mailgun, Postmark, Office365, AWS SES, and any custom SMTP server",
+  "description": "SMTP email adapter for @custom-auth/core — works with Gmail, Zoho, Brevo, Mailgun, Postmark, Office365, AWS SES, and any custom SMTP server",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -41,5 +41,14 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "author": "Vikas <vikasmukhiya1999>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevCodeHub99/custom-auth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DevCodeHub99/custom-auth/issues"
+  },
+  "homepage": "https://github.com/DevCodeHub99/custom-auth#readme"
 }
