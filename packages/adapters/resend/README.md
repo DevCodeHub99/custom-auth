@@ -1,28 +1,54 @@
 # @custom-auth/adapter-resend
 
-The official Resend adapter for sending verification emails and magic links in `@custom-auth`.
+Edge-compatible email adapter for `@custom-auth/core` using the [Resend](https://resend.com) API. Uses only `fetch()` — no Node.js dependencies.
 
 ## Installation
 
 ```bash
-npm install @custom-auth/core @custom-auth/adapter-resend resend
+npm install @custom-auth/adapter-resend @custom-auth/core
 ```
 
-## Quick Start
+Get an API key at [resend.com](https://resend.com) and verify your sending domain.
 
-Pass your Resend API key to the adapter.
+## Usage
 
-```typescript
-import { CustomAuth } from '@custom-auth/core';
-import { ResendAdapter } from '@custom-auth/adapter-resend';
+```ts
+import { createAuth } from '@custom-auth/core';
+import { ResendEmailAdapter } from '@custom-auth/adapter-resend';
 
-export const auth = new CustomAuth({
-  email: new ResendAdapter(process.env.RESEND_API_KEY, {
-    from: 'Auth <noreply@yourdomain.com>'
+const auth = createAuth({
+  secret: process.env.AUTH_SECRET!,
+  emailAdapter: new ResendEmailAdapter({
+    apiKey: process.env.RESEND_API_KEY!,
+    from: 'Auth <noreply@yourdomain.com>',
   }),
-  // ...other config
+  emailVerification: true,
+  verifyEmailUrl: 'https://yourapp.com/verify-email',
+  resetPasswordUrl: 'https://yourapp.com/reset-password',
 });
 ```
 
-## Documentation
-For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+## Custom templates
+
+```ts
+new ResendEmailAdapter({
+  apiKey: process.env.RESEND_API_KEY!,
+  from: 'Auth <noreply@yourdomain.com>',
+  templates: {
+    magicLink: (email, url) => ({
+      subject: 'Your magic sign-in link',
+      html: `<a href="${url}">Click to sign in</a>`,
+      text: `Sign in: ${url}`,
+    }),
+    // verification and passwordReset use defaults
+  },
+});
+```
+
+## Sent emails
+
+| Trigger | Template key |
+|---------|-------------|
+| `emailVerification: true` on register | `verification` |
+| `POST /forgot-password` | `passwordReset` |
+| `POST /magic-link` | `magicLink` |
