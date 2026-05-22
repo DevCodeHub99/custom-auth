@@ -21,9 +21,14 @@ The framework-agnostic authentication engine that powers the entire `@custom-aut
 
 ## Installation
 
+The core engine requires a database adapter and an email adapter to function. Install `@custom-auth/core` along with your preferred adapters:
+
 ```bash
-npm install @custom-auth/core
+# Example: Using Prisma for database and Resend for emails
+npm install @custom-auth/core @custom-auth/prisma @custom-auth/adapter-resend
 ```
+
+*(See the Ecosystem Packages list above for all available adapters)*
 
 ## Quick Start
 

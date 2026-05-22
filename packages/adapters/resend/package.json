@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/adapter-resend",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Resend email adapter for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

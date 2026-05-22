@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/core",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "The framework-agnostic core engine for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
