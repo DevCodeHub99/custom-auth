@@ -108,3 +108,9 @@ interface NextAuthSession {
   exp?: number;
 }
 ```
+
+
+## Documentation
+
+For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+

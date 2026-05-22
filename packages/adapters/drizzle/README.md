@@ -69,3 +69,9 @@ export const usersTable = pgTable('auth_users', {
 ```bash
 npx drizzle-kit push:pg
 ```
+
+
+## Documentation
+
+For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+
