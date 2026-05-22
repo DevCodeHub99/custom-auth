@@ -22,7 +22,8 @@ Edge-compatible email adapter for `@custom-auth/core` using the [Resend](https:/
 ## Installation
 
 ```bash
-# Install the core engine, the Resend adapter, and your chosen database adapter\nnpm install @custom-auth/core @custom-auth/adapter-resend <your-db-adapter>
+# Install the core engine, the Resend adapter, and your chosen database adapter
+npm install @custom-auth/core @custom-auth/adapter-resend <your-db-adapter>
 ```
 
 Get an API key at [resend.com](https://resend.com) and verify your sending domain.

@@ -56,5 +56,44 @@ function UserProfile() {
 }
 ```
 
-## Documentation
-For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+## Detailed Documentation
+
+### `AuthProvider`
+
+Wrap your root component with the `AuthProvider` to enable the auth context.
+
+```tsx
+import { AuthProvider } from '@custom-auth/react';
+
+export default function RootLayout({ children }) {
+  return (
+    <AuthProvider>
+      {children}
+    </AuthProvider>
+  );
+}
+```
+
+### `useAuth` Hook
+
+Access the current session and authentication methods from anywhere in your app.
+
+```tsx
+import { useAuth } from '@custom-auth/react';
+
+function Profile() {
+  const { session, isLoading, login, logout, register } = useAuth();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!session) return <p>You are not logged in.</p>;
+
+  return (
+    <div>
+      <h1>Welcome, {session.user.name}</h1>
+      <button onClick={() => logout()}>Logout</button>
+    </div>
+  );
+}
+```
+
+For complete implementation details, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).

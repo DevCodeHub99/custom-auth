@@ -64,4 +64,60 @@ export const auth = new CustomAuth({
 ```
 
 ## Documentation
-For full documentation and examples, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+
+Here is a detailed guide on how to use the core features of the authentication engine.
+
+### 1. Creating the Auth Instance
+
+```typescript
+import { createAuth } from '@custom-auth/core';
+// Import your chosen adapters
+import { PrismaAdapter } from '@custom-auth/prisma';
+import { ResendEmailAdapter } from '@custom-auth/adapter-resend';
+
+export const auth = createAuth({
+  secret: process.env.AUTH_SECRET,
+  dbAdapter: new PrismaAdapter(prisma),
+  emailAdapter: new ResendEmailAdapter({ apiKey: process.env.RESEND_API_KEY, from: 'Auth <no-reply@yourdomain.com>' }),
+  emailVerification: true,
+  verifyEmailUrl: 'https://yourapp.com/verify-email',
+  resetPasswordUrl: 'https://yourapp.com/reset-password',
+});
+```
+
+### 2. Registration & Login Flows
+
+The core engine provides all the necessary methods to handle user authentication:
+
+```typescript
+// Register a new user
+const { user, token } = await auth.register(email, password, name);
+
+// Login an existing user
+const { user, token } = await auth.login(email, password);
+
+// Create a session for the user
+const sessionData = await auth.createSession(user);
+```
+
+### 3. Password Reset Flow
+
+```typescript
+// Send a password reset email
+await auth.forgotPassword(email);
+
+// Reset the password using the token sent to the email
+await auth.resetPassword(token, newPassword);
+```
+
+### 4. Magic Links
+
+```typescript
+// Send a magic link to the user's email
+await auth.sendMagicLink(email);
+
+// Verify the magic link token
+const user = await auth.verifyMagicLink(token);
+```
+
+For deeper architectural details, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).

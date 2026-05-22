@@ -43,5 +43,31 @@ export const auth = new CustomAuth({
 });
 ```
 
-## Documentation
-For the required Prisma schema and full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+## Required Schema
+
+You must add the following models to your `schema.prisma` file for the core engine to function:
+
+```prisma
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  role          String    @default("user")
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+```
+
+For full architecture details, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
