@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/mongoose",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Mongoose database adapter for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
