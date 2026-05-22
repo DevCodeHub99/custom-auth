@@ -237,3 +237,9 @@ SMTP_PASS=wJalrXUtnFEMI/K...      # SES SMTP password
 | Register with `emailVerification: true` | `verification` |
 | `POST /forgot-password` | `passwordReset` |
 | `POST /magic-link` | `magicLink` |
+
+
+## Documentation
+
+For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+

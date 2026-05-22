@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/prisma",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Prisma database adapter for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

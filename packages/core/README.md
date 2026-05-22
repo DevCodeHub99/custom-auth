@@ -121,3 +121,9 @@ const user = await auth.verifyMagicLink(token);
 ```
 
 
+
+
+## Documentation
+
+For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+
