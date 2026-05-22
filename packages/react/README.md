@@ -21,8 +21,14 @@ React hooks and context providers for seamlessly integrating `@custom-auth` into
 
 ## Installation
 
+The React SDK works alongside the core engine. You also need to install your chosen database and email adapters on your backend:
+
 ```bash
-npm install @custom-auth/core @custom-auth/react
+# General Format
+npm install @custom-auth/core @custom-auth/react <your-db-adapter> <your-email-adapter>
+
+# Example
+npm install @custom-auth/core @custom-auth/react @custom-auth/prisma @custom-auth/adapter-resend
 ```
 
 ## Quick Start

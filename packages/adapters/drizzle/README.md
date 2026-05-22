@@ -22,7 +22,8 @@ The official Drizzle ORM adapter for `@custom-auth`.
 ## Installation
 
 ```bash
-npm install @custom-auth/core @custom-auth/drizzle drizzle-orm
+# Install the core engine, the Drizzle adapter, and your chosen email adapter
+npm install @custom-auth/core @custom-auth/drizzle <your-email-adapter>
 ```
 
 ## Quick Start

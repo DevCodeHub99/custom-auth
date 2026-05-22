@@ -21,27 +21,44 @@ The framework-agnostic authentication engine that powers the entire `@custom-aut
 
 ## Installation
 
-The core engine requires a database adapter and an email adapter to function. Install `@custom-auth/core` along with your preferred adapters:
+The core engine requires a database adapter and an email adapter to function. Choose the ones that match your stack:
 
 ```bash
-# Example: Using Prisma for database and Resend for emails
+# General Format
+npm install @custom-auth/core <your-db-adapter> <your-email-adapter>
+
+# Example 1: Prisma + Resend
 npm install @custom-auth/core @custom-auth/prisma @custom-auth/adapter-resend
+
+# Example 2: Drizzle + Nodemailer
+npm install @custom-auth/core @custom-auth/drizzle @custom-auth/adapter-nodemailer
 ```
 
 *(See the Ecosystem Packages list above for all available adapters)*
 
 ## Quick Start
 
-Initialize the core authentication engine with your desired database and email adapters.
+Initialize the core authentication engine with your chosen database and email adapters. The API remains exactly the same regardless of which adapters you pick!
 
 ```typescript
 import { CustomAuth } from '@custom-auth/core';
+
+// 1. Import your preferred Database Adapter
 import { PrismaAdapter } from '@custom-auth/prisma';
+// import { DrizzleAdapter } from '@custom-auth/drizzle';
+// import { MongooseAdapter } from '@custom-auth/mongoose';
+
+// 2. Import your preferred Email Adapter
 import { ResendAdapter } from '@custom-auth/adapter-resend';
+// import { NodemailerAdapter } from '@custom-auth/adapter-nodemailer';
 
 export const auth = new CustomAuth({
-  db: new PrismaAdapter(prisma),
+  // Use your chosen DB adapter
+  db: new PrismaAdapter(prisma), 
+  
+  // Use your chosen Email adapter
   email: new ResendAdapter('your-resend-api-key'),
+  
   secret: process.env.AUTH_SECRET
 });
 ```

@@ -29,7 +29,7 @@ mail server. Built on [Nodemailer](https://nodemailer.com).
 ## Installation
 
 ```bash
-npm install @custom-auth/adapter-nodemailer @custom-auth/core
+# Install the core engine, the Nodemailer adapter, and your chosen database adapter\nnpm install @custom-auth/core @custom-auth/adapter-nodemailer <your-db-adapter>
 ```
 
 ---

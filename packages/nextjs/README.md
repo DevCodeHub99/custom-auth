@@ -22,7 +22,7 @@ Edge-compatible Next.js helpers for `@custom-auth/core`. Works in App Router, Pa
 ## Installation
 
 ```bash
-npm install @custom-auth/nextjs @custom-auth/core jose
+# Install the core engine, nextjs helpers, and your chosen adapters\nnpm install @custom-auth/nextjs @custom-auth/core jose <your-db-adapter> <your-email-adapter>
 ```
 
 ## getServerSession

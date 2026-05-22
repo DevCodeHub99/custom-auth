@@ -22,7 +22,8 @@ The official Prisma ORM adapter for `@custom-auth`.
 ## Installation
 
 ```bash
-npm install @custom-auth/core @custom-auth/prisma @prisma/client
+# Install the core engine, the Prisma adapter, and your chosen email adapter
+npm install @custom-auth/core @custom-auth/prisma <your-email-adapter>
 ```
 
 ## Quick Start

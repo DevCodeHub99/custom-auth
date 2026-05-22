@@ -22,7 +22,8 @@ The official Mongoose (MongoDB) adapter for `@custom-auth`.
 ## Installation
 
 ```bash
-npm install @custom-auth/core @custom-auth/mongoose mongoose
+# Install the core engine, the Mongoose adapter, and your chosen email adapter
+npm install @custom-auth/core @custom-auth/mongoose <your-email-adapter>
 ```
 
 ## Quick Start
