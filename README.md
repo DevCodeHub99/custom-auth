@@ -3,8 +3,10 @@
 > Production-grade, framework-agnostic authentication for Node.js, edge runtimes, and browser apps.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-
+[![NPM Version](https://img.shields.io/npm/v/@custom-auth/core?color=green&label=NPM)](https://www.npmjs.com/package/@custom-auth/core)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/DevCodeHub99/custom-auth?style=social)](https://github.com/DevCodeHub99/custom-auth)
+[![CI Build](https://img.shields.io/github/actions/workflow/status/DevCodeHub99/custom-auth/ci.yml?branch=main)](https://github.com/DevCodeHub99/custom-auth/actions)
 ---
 
 ## Table of Contents
