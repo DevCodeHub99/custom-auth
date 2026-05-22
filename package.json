@@ -8,7 +8,6 @@
   ],
   "scripts": {
     "build": "npm run build --workspace=packages/core --workspace=packages/react --workspace=packages/nextjs --workspace=packages/adapters/prisma --workspace=packages/adapters/mongoose --workspace=packages/adapters/drizzle --workspace=packages/adapters/nodemailer --workspace=packages/adapters/resend --if-present",
-    "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
@@ -26,4 +25,4 @@
   },
   "homepage": "https://github.com/DevCodeHub99/custom-auth#readme",
   "version": "0.0.4"
-}
+}\n

@@ -7,19 +7,15 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.12.7",
     "@types/qrcode": "^1.5.6",
     "@types/speakeasy": "^2.0.10",
-    "@vitest/coverage-v8": "^4.1.6",
     "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
-    "vitest": "^4.1.6"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -61,4 +57,4 @@
     "security",
     "oauth"
   ]
-}
+}\n
