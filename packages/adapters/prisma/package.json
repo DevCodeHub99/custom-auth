@@ -32,5 +32,14 @@
   "bugs": {
     "url": "https://github.com/DevCodeHub99/custom-auth/issues"
   },
-  "homepage": "https://github.com/DevCodeHub99/custom-auth#readme"
+  "homepage": "https://github.com/DevCodeHub99/custom-auth#readme",
+  "keywords": [
+    "auth",
+    "authentication",
+    "prisma",
+    "adapter",
+    "database",
+    "orm",
+    "custom-auth"
+  ]
 }
