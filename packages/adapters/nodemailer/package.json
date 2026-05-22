@@ -1,7 +1,7 @@
 {
   "name": "@custom-auth/adapter-nodemailer",
-  "version": "1.0.0",
-  "description": "SMTP email adapter for @custom-auth/core — works with Gmail, Zoho, Brevo, Mailgun, Postmark, Office365, AWS SES, and any custom SMTP server",
+  "version": "1.0.1",
+  "description": "Nodemailer email adapter for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

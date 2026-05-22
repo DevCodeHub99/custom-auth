@@ -1,7 +1,7 @@
 {
   "name": "@custom-auth/react",
-  "version": "1.0.0",
-  "description": "React hooks and context for custom-auth",
+  "version": "1.0.1",
+  "description": "React hooks and context providers for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

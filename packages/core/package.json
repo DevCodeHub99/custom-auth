@@ -1,7 +1,7 @@
 {
   "name": "@custom-auth/core",
-  "version": "1.0.0",
-  "description": "Core logic for custom-auth",
+  "version": "1.0.1",
+  "description": "The framework-agnostic core engine for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
