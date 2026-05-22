@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/adapter-nodemailer",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Nodemailer email adapter for @custom-auth.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

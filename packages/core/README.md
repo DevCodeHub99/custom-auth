@@ -120,4 +120,4 @@ await auth.sendMagicLink(email);
 const user = await auth.verifyMagicLink(token);
 ```
 
-For deeper architectural details, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+

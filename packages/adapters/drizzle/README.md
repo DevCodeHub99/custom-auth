@@ -39,5 +39,33 @@ export const auth = new CustomAuth({
 });
 ```
 
-## Documentation
-For the required Drizzle schema and full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+## Schema Setup
+
+Drizzle requires you to export the provided schema tables so they can be pushed to your database.
+
+**Step 1 — Use the built-in schema (or extend it)**
+
+```ts
+// db/schema.ts
+export {
+  usersTable,
+  sessionsTable,
+  verificationTokensTable,
+} from '@custom-auth/drizzle/schema';
+
+// Or extend to add custom columns:
+import { usersTable as base } from '@custom-auth/drizzle/schema';
+import { pgTable, text } from 'drizzle-orm/pg-core';
+
+export const usersTable = pgTable('auth_users', {
+  ...base,  // id, email, name, passwordHash, role, emailVerified, createdAt, updatedAt
+  stripeCustomerId: text('stripe_customer_id'),
+  plan: text('plan').notNull().default('free'),
+});
+```
+
+**Step 2 — Push schema**
+
+```bash
+npx drizzle-kit push:pg
+```

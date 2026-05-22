@@ -41,5 +41,19 @@ export const auth = new CustomAuth({
 });
 ```
 
-## Documentation
-For full documentation, please visit the [Main Repository](https://github.com/DevCodeHub99/custom-auth).
+## Extending the Schema
+
+The Mongoose adapter automatically registers the `User`, `Session`, and `VerificationToken` models under the hood. However, you can extend the built-in schemas if you need custom fields:
+
+```ts
+import mongoose from 'mongoose';
+import { MongooseAdapter, UserSchema } from '@custom-auth/mongoose';
+
+// Add custom fields to the user schema
+UserSchema.add({ stripeCustomerId: String, plan: { type: String, default: 'free' } });
+const UserModel = mongoose.model('User', UserSchema);
+
+export const auth = new CustomAuth({
+  db: new MongooseAdapter({ UserModel }),
+});
+```
