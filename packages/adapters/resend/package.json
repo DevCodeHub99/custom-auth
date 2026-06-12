@@ -2,6 +2,7 @@
   "name": "@custom-auth/adapter-resend",
   "version": "1.0.11",
   "description": "Resend email adapter for @custom-auth.",
+  "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

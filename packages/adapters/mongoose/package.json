@@ -2,6 +2,7 @@
   "name": "@custom-auth/mongoose",
   "version": "1.0.11",
   "description": "Mongoose database adapter for @custom-auth.",
+  "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
