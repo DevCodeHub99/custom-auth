@@ -2,6 +2,7 @@
   "name": "@custom-auth/core",
   "version": "1.0.11",
   "description": "The framework-agnostic core engine for @custom-auth.",
+  "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

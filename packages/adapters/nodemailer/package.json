@@ -2,6 +2,7 @@
   "name": "@custom-auth/adapter-nodemailer",
   "version": "1.0.11",
   "description": "Nodemailer email adapter for @custom-auth.",
+  "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
