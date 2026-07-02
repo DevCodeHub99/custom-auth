@@ -16,12 +16,17 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Uses Web Crypto API (available in Node 19+, browsers, Edge, Deno, Bun).
  */
 export function generateToken(byteLength: number = 32): string {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  // hex-encode — URL-safe, unambiguous
-  return Array.from(bytes)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
+    const bytes = new Uint8Array(byteLength);
+    globalThis.crypto.getRandomValues(bytes);
+    // hex-encode — URL-safe, unambiguous
+    return Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  // Node.js fallback
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('crypto').randomBytes(byteLength).toString('hex');
 }
 
 /**
@@ -73,4 +78,21 @@ export function timingSafeEqual(a: string, b: string): boolean {
     diff |= aBytes[i] ^ bBytes[i];
   }
   return diff === 0;
+}
+
+/**
+ * Generates a cryptographically secure 6-digit numeric OTP.
+ */
+export function generateOtpCode(): string {
+  const bytes = new Uint8Array(4);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodeCrypto = require('crypto');
+    const randomBytes = nodeCrypto.randomBytes(4);
+    bytes.set(randomBytes);
+  }
+  const val = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  return (val % 1000000).toString().padStart(6, '0');
 }

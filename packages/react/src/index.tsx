@@ -457,3 +457,71 @@ export function useMfa(apiBaseUrl = '/api/auth'): UseMfaResult {
 
   return { verifyMfa, setupMfa, enableMfa, disableMfa, isLoading, error };
 }
+
+// ── useOtp ────────────────────────────────────────────────────────────────
+
+export interface UseOtpResult {
+  requestOtp: (email: string) => Promise<void>;
+  verifyOtp: (email: string, code: string) => Promise<{ user: User }>;
+  isLoading: boolean;
+  error: string | null;
+  sent: boolean;
+}
+
+export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  const requestOtp = useCallback(
+    async (email: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${apiBaseUrl}/otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? 'Failed to request OTP');
+        setSent(true);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to request OTP';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  const verifyOtp = useCallback(
+    async (email: string, code: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${apiBaseUrl}/otp/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? 'OTP verification failed');
+        return data as { user: User };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'OTP verification failed';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  return { requestOtp, verifyOtp, isLoading, error, sent };
+}

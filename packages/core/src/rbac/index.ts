@@ -12,8 +12,13 @@ export interface RBACConfig {
 export class RBACManager {
   constructor(private config: RBACConfig) {}
 
-  private getPermissionsForRole(role: string): Set<string> {
+  private getPermissionsForRole(role: string, visited: Set<string> = new Set()): Set<string> {
     const permissions = new Set<string>();
+    if (visited.has(role)) {
+      return permissions;
+    }
+    visited.add(role);
+
     const roleConfig = this.config.roles[role];
 
     if (!roleConfig) {
@@ -24,7 +29,7 @@ export class RBACManager {
 
     if (roleConfig.inherits) {
       for (const inheritedRole of roleConfig.inherits) {
-        const inheritedPermissions = this.getPermissionsForRole(inheritedRole);
+        const inheritedPermissions = this.getPermissionsForRole(inheritedRole, visited);
         inheritedPermissions.forEach(p => permissions.add(p));
       }
     }

@@ -4,9 +4,22 @@ export interface RateLimitStore {
 
 export class InMemoryRateLimitStore implements RateLimitStore {
   private hits: Map<string, { count: number; expiresAt: number }> = new Map();
+  private lastCleanup = Date.now();
+  private cleanupIntervalMs = 60_000; // clean up every minute
 
   async increment(key: string, limit: number, windowMs: number): Promise<{ success: boolean; remaining: number }> {
     const now = Date.now();
+
+    // Lazy periodic cleanup of expired keys
+    if (now - this.lastCleanup > this.cleanupIntervalMs) {
+      for (const [k, record] of this.hits.entries()) {
+        if (record.expiresAt < now) {
+          this.hits.delete(k);
+        }
+      }
+      this.lastCleanup = now;
+    }
+
     const record = this.hits.get(key);
 
     if (!record || record.expiresAt < now) {

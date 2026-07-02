@@ -65,6 +65,7 @@ export interface EmailTemplates {
   verification: (email: string, url: string) => EmailTemplate;
   passwordReset: (email: string, url: string) => EmailTemplate;
   magicLink: (email: string, url: string) => EmailTemplate;
+  otp?: (email: string, code: string) => EmailTemplate;
 }
 
 // ── SMTP preset type ──────────────────────────────────────────────────────
@@ -299,6 +300,27 @@ const defaultTemplates: EmailTemplates = {
       </div>`,
     text: `Sign in by visiting:\n${url}\n\nThis link expires in 15 minutes and can only be used once.`,
   }),
+
+  otp: (_email, code) => ({
+    subject: 'Your one-time password (OTP)',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+        <h2 style="color:#111827;margin-bottom:8px;">Your verification code</h2>
+        <p style="color:#374151;margin-bottom:24px;">
+          Use the following one-time password to sign in. This code expires in
+          <strong>5 minutes</strong>.
+        </p>
+        <div style="font-size:32px;font-weight:700;letter-spacing:4px;color:#2563eb;
+                    background:#f3f4f6;padding:16px;text-align:center;border-radius:6px;
+                    margin-bottom:24px;font-family:monospace;">
+          ${code}
+        </div>
+        <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+          If you didn't request this code, you can safely ignore this email.
+        </p>
+      </div>`,
+    text: `Your verification code is: ${code}\n\nThis code expires in 5 minutes.`,
+  }),
 };
 
 // ── Adapter ───────────────────────────────────────────────────────────────
@@ -358,6 +380,11 @@ export class SmtpEmailAdapter implements EmailAdapter {
 
   async sendMagicLinkEmail(email: string, url: string): Promise<void> {
     await this.send(email, this.templates.magicLink(email, url));
+  }
+
+  async sendOtpEmail(email: string, code: string): Promise<void> {
+    if (!this.templates.otp) throw new Error('SmtpEmailAdapter: OTP template builder is missing.');
+    await this.send(email, this.templates.otp(email, code));
   }
 
   // ── Utilities ────────────────────────────────────────────────────────

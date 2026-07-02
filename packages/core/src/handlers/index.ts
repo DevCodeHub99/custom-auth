@@ -164,6 +164,8 @@ export class CustomAuth {
       if (pathname.endsWith('/mfa/disable'))       return this.handleMfaDisable(req);
       if (pathname.endsWith('/forgot-password'))   return this.handleForgotPassword(req);
       if (pathname.endsWith('/reset-password'))    return this.handleResetPassword(req);
+      if (pathname.endsWith('/otp'))               return this.handleOtpRequest(req);
+      if (pathname.endsWith('/otp/verify'))        return this.handleOtpVerify(req);
     }
 
     // ── GET ───────────────────────────────────────────────────────────────
@@ -548,6 +550,39 @@ export class CustomAuth {
         status: 200,
         headers,
       });
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  // ── OTP Handlers ──────────────────────────────────────────────────────
+
+  private async handleOtpRequest(req: Request): Promise<Response> {
+    const rl = await checkRateLimit(this.config, req, 'otp-request', 5, 60_000);
+    if (rl) return rl;
+
+    try {
+      const { email } = await req.json();
+      if (!email) return json({ error: 'email is required' }, 400);
+
+      await this.flows.requestOtp(email);
+      return json({ success: true }, 200);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleOtpVerify(req: Request): Promise<Response> {
+    const rl = await checkRateLimit(this.config, req, 'otp-verify', 5, 60_000);
+    if (rl) return rl;
+
+    try {
+      const { email, code } = await req.json();
+      if (!email || !code) return json({ error: 'email and code are required' }, 400);
+
+      const result = await this.flows.verifyOtp(email, code);
+      const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
+      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }

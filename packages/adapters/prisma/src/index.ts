@@ -44,7 +44,7 @@ export class PrismaAdapter implements DatabaseAdapter {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await this.prisma.session.delete({ where: { id: sessionId } });
+    await this.prisma.session.deleteMany({ where: { id: sessionId } });
   }
 
   async createVerificationToken(data: VerificationToken): Promise<void> {

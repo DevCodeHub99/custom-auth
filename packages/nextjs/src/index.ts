@@ -8,7 +8,8 @@
  *
  *   // app/api/auth/[...auth]/route.ts
  *   import { auth } from '@/lib/auth';
- *   export const { GET, POST } = auth.toNextHandlers();
+ *   export const GET  = (req: Request) => auth.handleRequest(req);
+ *   export const POST = (req: Request) => auth.handleRequest(req);
  *
  *   // Middleware (middleware.ts)
  *   import { withAuth } from '@custom-auth/nextjs';

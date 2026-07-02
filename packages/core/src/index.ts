@@ -18,7 +18,6 @@ export * from './utils/crypto';
 
 // Security
 export * from './security/rate-limit';
-export * from './security/mfa';
 
 // RBAC
 export * from './rbac';

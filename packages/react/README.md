@@ -47,12 +47,12 @@ function App() {
 }
 
 function UserProfile() {
-  const { session, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) return <div>Loading...</div>;
-  if (!session) return <div>Please log in</div>;
+  if (!user) return <div>Please log in</div>;
 
-  return <div>Welcome back, {session.user.name}!</div>;
+  return <div>Welcome back, {user.name ?? user.email}!</div>;
 }
 ```
 
@@ -76,28 +76,66 @@ export default function RootLayout({ children }) {
 
 ### `useAuth` Hook
 
-Access the current session and authentication methods from anywhere in your app.
+Access the current user session and authentication methods from anywhere in your app.
 
 ```tsx
 import { useAuth } from '@custom-auth/react';
 
 function Profile() {
-  const { session, isLoading, login, logout, register } = useAuth();
+  const { user, isLoading, signIn, signUp, signOut } = useAuth();
 
   if (isLoading) return <p>Loading...</p>;
-  if (!session) return <p>You are not logged in.</p>;
+  if (!user) return <p>You are not logged in.</p>;
 
   return (
     <div>
-      <h1>Welcome, {session.user.name}</h1>
-      <button onClick={() => logout()}>Logout</button>
+      <h1>Welcome, {user.name ?? user.email}</h1>
+      <button onClick={() => signOut()}>Logout</button>
     </div>
   );
 }
 ```
 
+### `useOtp` Hook
 
+Request and verify email one-time passwords (OTP).
 
+```tsx
+import { useOtp } from '@custom-auth/react';
+import { useState } from 'react';
+
+function OtpLogin() {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const { requestOtp, verifyOtp, sent, isLoading, error } = useOtp();
+
+  const handleRequest = async () => {
+    await requestOtp(email);
+  };
+
+  const handleVerify = async () => {
+    const { user } = await verifyOtp(email, code);
+    console.log('Logged in user:', user);
+  };
+
+  return (
+    <div>
+      {!sent ? (
+        <div>
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
+          <button onClick={handleRequest} disabled={isLoading}>Send Code</button>
+        </div>
+      ) : (
+        <div>
+          <input value={code} onChange={e => setCode(e.target.value)} placeholder="6-digit code" />
+          <button onClick={handleVerify} disabled={isLoading}>Verify & Login</button>
+        </div>
+      )}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+    </div>
+  );
+}
+```
 
 ## Documentation
 
