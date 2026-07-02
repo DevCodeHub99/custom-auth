@@ -23,6 +23,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm' # Enable dependency caching to speed up builds
 
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+
       - name: Install Dependencies
         run: npm ci
 
