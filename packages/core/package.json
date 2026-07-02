@@ -57,6 +57,11 @@
     "rbac",
     "custom-auth",
     "security",
-    "oauth"
+    "oauth",
+    "passkeys",
+    "webauthn",
+    "passwordless",
+    "otp",
+    "biometric"
   ]
 }
