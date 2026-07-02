@@ -58,6 +58,11 @@
     "middleware",
     "edge",
     "session",
-    "custom-auth"
+    "custom-auth",
+    "passkeys",
+    "webauthn",
+    "passwordless",
+    "otp",
+    "biometric"
   ]
 }
