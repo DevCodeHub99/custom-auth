@@ -486,4 +486,190 @@ export class AuthFlows {
     await this.fireSuccess({ event: 'otp-verify', userId: user.id, email, timestamp: new Date() });
     return { user, token: sessionToken };
   }
+
+  // ── WebAuthn / Passkey Flows ──────────────────────────────────────────
+
+  async generateRegistrationOptions(userId: string) {
+    const config = this.config;
+    if (!config.webauthn) {
+      throw new MissingConfigError('webauthn config is required for Passkey authentication');
+    }
+    const db = this.adapter('getUserById');
+    const user = await db.getUserById(userId);
+    if (!user) throw new UserNotFoundError();
+
+    const dbAdapter = this.config.adapter;
+    const existing = dbAdapter?.listAuthenticatorsByUserId ? await dbAdapter.listAuthenticatorsByUserId(userId) : [];
+
+    const { generateRegistrationOptions } = await import('@simplewebauthn/server');
+    const options = await generateRegistrationOptions({
+      rpName: config.webauthn.rpName,
+      rpID: config.webauthn.rpID,
+      userID: Buffer.from(user.id),
+      userName: user.email,
+      userDisplayName: user.name || user.email,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'required',
+        userVerification: 'preferred',
+      },
+      excludeCredentials: existing.map(auth => ({
+        id: auth.credentialID,
+        type: 'public-key',
+      })),
+    });
+
+    const createToken = this.adapter('createVerificationToken');
+    await createToken.createVerificationToken!({
+      token: options.challenge,
+      email: user.email,
+      type: 'webauthn-challenge',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    return options;
+  }
+
+  async verifyRegistration(userId: string, response: any, challenge: string) {
+    const config = this.config;
+    if (!config.webauthn) {
+      throw new MissingConfigError('webauthn config is required');
+    }
+    const db = this.adapter('getUserById');
+    const user = await db.getUserById(userId);
+    if (!user) throw new UserNotFoundError();
+
+    const dbToken = this.adapter('getVerificationToken');
+    const tokenRecord = await dbToken.getVerificationToken!(challenge, 'webauthn-challenge');
+    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
+      throw new TokenExpiredError('Challenge has expired or is invalid');
+    }
+    await dbToken.deleteVerificationToken!(challenge, 'webauthn-challenge');
+
+    const { verifyRegistrationResponse } = await import('@simplewebauthn/server');
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: challenge,
+      expectedOrigin: config.webauthn.origin,
+      expectedRPID: config.webauthn.rpID,
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      throw new AuthError('WebAuthn registration verification failed');
+    }
+
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    const { id: credentialID, publicKey: credentialPublicKey, counter } = credential;
+
+    const createAuthenticator = this.adapter('createAuthenticator');
+    await createAuthenticator.createAuthenticator!({
+      credentialID: Buffer.from(credentialID).toString('base64url'),
+      credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
+      counter,
+      userId: user.id,
+      credentialDeviceType,
+      credentialBackedUp,
+      transports: response.response.transports?.join(','),
+    });
+
+    await this.fireSuccess({
+      event: 'webauthn-register',
+      userId: user.id,
+      email: user.email,
+      timestamp: new Date(),
+    });
+  }
+
+  async generateLoginOptions(email?: string) {
+    const config = this.config;
+    if (!config.webauthn) {
+      throw new MissingConfigError('webauthn config is required');
+    }
+
+    let allowCredentials: any[] = [];
+    if (email) {
+      const db = this.adapter('getUserByEmail');
+      const user = await db.getUserByEmail(email);
+      if (user) {
+        const dbAdapter = this.config.adapter;
+        const existing = dbAdapter?.listAuthenticatorsByUserId ? await dbAdapter.listAuthenticatorsByUserId(user.id) : [];
+        allowCredentials = existing.map(auth => ({
+          id: auth.credentialID,
+          type: 'public-key',
+        }));
+      }
+    }
+
+    const { generateAuthenticationOptions } = await import('@simplewebauthn/server');
+    const options = await generateAuthenticationOptions({
+      rpID: config.webauthn.rpID,
+      allowCredentials,
+      userVerification: 'preferred',
+    });
+
+    const createToken = this.adapter('createVerificationToken');
+    await createToken.createVerificationToken!({
+      token: options.challenge,
+      email: email || '',
+      type: 'webauthn-challenge',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    return options;
+  }
+
+  async verifyLogin(response: any, challenge: string) {
+    const config = this.config;
+    if (!config.webauthn) {
+      throw new MissingConfigError('webauthn config is required');
+    }
+
+    const dbToken = this.adapter('getVerificationToken');
+    const tokenRecord = await dbToken.getVerificationToken!(challenge, 'webauthn-challenge');
+    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
+      throw new TokenExpiredError('Challenge has expired or is invalid');
+    }
+    await dbToken.deleteVerificationToken!(challenge, 'webauthn-challenge');
+
+    const dbAuth = this.adapter('getAuthenticatorById');
+    const authenticator = await dbAuth.getAuthenticatorById!(response.id);
+    if (!authenticator) {
+      throw new AuthError('Authenticator not found or not registered to any user');
+    }
+
+    const dbUser = this.adapter('getUserById');
+    const user = await dbUser.getUserById(authenticator.userId);
+    if (!user) throw new UserNotFoundError();
+
+    const { verifyAuthenticationResponse } = await import('@simplewebauthn/server');
+    const verification = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: challenge,
+      expectedOrigin: config.webauthn.origin,
+      expectedRPID: config.webauthn.rpID,
+      credential: {
+        id: authenticator.credentialID,
+        publicKey: Buffer.from(authenticator.credentialPublicKey, 'base64url'),
+        counter: authenticator.counter,
+      },
+    });
+
+    if (!verification.verified || !verification.authenticationInfo) {
+      throw new AuthError('WebAuthn authentication verification failed');
+    }
+
+    const updateCounter = this.adapter('updateAuthenticatorCounter');
+    await updateCounter.updateAuthenticatorCounter!(authenticator.credentialID, verification.authenticationInfo.newCounter);
+
+    const sessionToken = await this.sessionManager.createToken(user);
+
+    await this.fireSuccess({
+      event: 'webauthn-login',
+      userId: user.id,
+      email: user.email,
+      timestamp: new Date(),
+    });
+
+    return { user, token: sessionToken };
+  }
 }

@@ -25,8 +25,9 @@ export interface VerificationToken {
    * 'password-reset' — forgot password flow
    * 'mfa-pending'    — temporary token held during MFA challenge
    * 'email-otp'      — passwordless one-time password flow
+   * 'webauthn-challenge' — temporary challenge stored for passkey verification
    */
-  type: 'magic-link' | 'email-verify' | 'password-reset' | 'mfa-pending' | 'email-otp';
+  type: 'magic-link' | 'email-verify' | 'password-reset' | 'mfa-pending' | 'email-otp' | 'webauthn-challenge';
   expiresAt: Date;
 }
 
@@ -74,7 +75,9 @@ export type AuthEventName =
   | 'password-reset'
   | 'oauth-login'
   | 'token-refresh'
-  | 'otp-verify';
+  | 'otp-verify'
+  | 'webauthn-register'
+  | 'webauthn-login';
 
 export interface AuthEvent {
   event: AuthEventName;
@@ -124,6 +127,11 @@ export interface AuthConfig {
    */
   resetPasswordUrl?: string;
   rateLimiter?: RateLimiterAdapter;
+  webauthn?: {
+    rpName: string;
+    rpID: string;
+    origin: string;
+  };
 }
 
 export interface DatabaseAdapter {
@@ -142,6 +150,12 @@ export interface DatabaseAdapter {
   createVerificationToken?(data: VerificationToken): Promise<void>;
   getVerificationToken?(token: string, type: VerificationToken['type']): Promise<VerificationToken | null>;
   deleteVerificationToken?(token: string, type: VerificationToken['type']): Promise<void>;
+
+  // WebAuthn Authenticators
+  createAuthenticator?(data: Authenticator): Promise<void>;
+  getAuthenticatorById?(credentialID: string): Promise<Authenticator | null>;
+  listAuthenticatorsByUserId?(userId: string): Promise<Authenticator[]>;
+  updateAuthenticatorCounter?(credentialID: string, counter: number): Promise<void>;
 }
 
 export interface CreateUserInput {
@@ -184,3 +198,14 @@ export interface Provider {
   callbackUrl?: string;
   [key: string]: any;
 }
+
+export interface Authenticator {
+  credentialID: string;
+  credentialPublicKey: string;
+  counter: number;
+  transports?: string; // Comma-separated list (e.g. "internal,usb")
+  userId: string;
+  credentialDeviceType: string;
+  credentialBackedUp: boolean;
+}
+
