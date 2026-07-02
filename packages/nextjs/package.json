@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/nextjs",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Edge-compatible Next.js helpers and middleware for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -66,3 +66,4 @@
     "biometric"
   ]
 }
+
