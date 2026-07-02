@@ -85,39 +85,38 @@ export const auth = createAuth({
 });
 ```
 
-### 2. Registration & Login Flows
+### 2. Programmatic Usage (AuthFlows)
 
-The core engine provides all the necessary methods to handle user authentication:
+If you need to trigger authentication logic programmatically (e.g., in a seed script, testing, or custom setup), you can instantiate `AuthFlows` directly:
 
 ```typescript
+import { AuthFlows } from '@custom-auth/core';
+
+const flows = new AuthFlows(authConfig);
+
 // Register a new user
-const { user, token } = await auth.register(email, password, name);
+const { user, token } = await flows.register(email, password, name);
 
-// Login an existing user
-const { user, token } = await auth.login(email, password);
+// Login a user
+const result = await flows.login(email, password); // returns user/token or MFA required temp token
 
-// Create a session for the user
-const sessionData = await auth.createSession(user);
-```
+// Request password reset
+await flows.requestPasswordReset(email, 'https://yourapp.com/reset-password');
 
-### 3. Password Reset Flow
+// Reset password
+await flows.resetPassword(token, email, newPassword);
 
-```typescript
-// Send a password reset email
-await auth.forgotPassword(email);
+// Send magic link
+await flows.requestMagicLink(email, 'https://yourapp.com/api/auth/magic-link/verify');
 
-// Reset the password using the token sent to the email
-await auth.resetPassword(token, newPassword);
-```
+// Verify magic link
+const { user, token: sessionToken } = await flows.verifyMagicLink(token, email);
 
-### 4. Magic Links
+// Request Email OTP (One-Time Password)
+await flows.requestOtp(email);
 
-```typescript
-// Send a magic link to the user's email
-await auth.sendMagicLink(email);
-
-// Verify the magic link token
-const user = await auth.verifyMagicLink(token);
+// Verify Email OTP
+const { user: otpUser, token: otpSessionToken } = await flows.verifyOtp(email, code);
 ```
 
 

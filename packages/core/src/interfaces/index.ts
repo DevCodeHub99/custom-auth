@@ -24,8 +24,9 @@ export interface VerificationToken {
    * 'email-verify'   — verify new account email
    * 'password-reset' — forgot password flow
    * 'mfa-pending'    — temporary token held during MFA challenge
+   * 'email-otp'      — passwordless one-time password flow
    */
-  type: 'magic-link' | 'email-verify' | 'password-reset' | 'mfa-pending';
+  type: 'magic-link' | 'email-verify' | 'password-reset' | 'mfa-pending' | 'email-otp';
   expiresAt: Date;
 }
 
@@ -72,7 +73,8 @@ export type AuthEventName =
   | 'email-verify'
   | 'password-reset'
   | 'oauth-login'
-  | 'token-refresh';
+  | 'token-refresh'
+  | 'otp-verify';
 
 export interface AuthEvent {
   event: AuthEventName;
@@ -164,6 +166,7 @@ export interface EmailAdapter {
   sendVerificationEmail(email: string, url: string): Promise<void>;
   sendPasswordResetEmail(email: string, url: string): Promise<void>;
   sendMagicLinkEmail(email: string, url: string): Promise<void>;
+  sendOtpEmail?(email: string, code: string): Promise<void>;
 }
 
 export interface RateLimiterAdapter {

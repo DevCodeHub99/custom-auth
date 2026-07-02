@@ -1,5 +1,5 @@
 import { AuthConfig, User, AuthEvent, AuthErrorEvent } from '../interfaces';
-import { hashPassword, verifyPassword, generateToken, timingSafeEqual } from '../utils/crypto';
+import { hashPassword, verifyPassword, generateToken, timingSafeEqual, generateOtpCode } from '../utils/crypto';
 import { SessionManager } from '../session';
 import {
   AuthError,
@@ -21,6 +21,7 @@ const MAGIC_LINK_TTL_MS     = 15 * 60 * 1000;       // 15 min
 const EMAIL_VERIFY_TTL_MS   = 24 * 60 * 60 * 1000;  // 24 h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;        // 1 h
 const MFA_PENDING_TTL_MS    = 5 * 60 * 1000;         // 5 min
+const EMAIL_OTP_TTL_MS      = 5 * 60 * 1000;         // 5 min
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -432,6 +433,57 @@ export class AuthFlows {
 
     const sessionToken = await this.sessionManager.createToken(user);
     await this.fireSuccess({ event: 'oauth-login', userId: user.id, email: user.email, timestamp: new Date() });
+    return { user, token: sessionToken };
+  }
+
+  // ── Email OTP ─────────────────────────────────────────────────────────
+
+  async requestOtp(email: string): Promise<void> {
+    const db = this.adapter('createVerificationToken');
+    if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
+    if (!this.config.emailAdapter.sendOtpEmail) {
+      throw new MissingConfigError('sendOtpEmail is not supported by the configured emailAdapter');
+    }
+
+    let user = await db.getUserByEmail(email);
+    if (!user) {
+      user = await db.createUser({ email, role: 'user' });
+    }
+
+    const code = generateOtpCode();
+    const expiresAt = new Date(Date.now() + EMAIL_OTP_TTL_MS);
+
+    await db.createVerificationToken!({
+      token: code,
+      email,
+      type: 'email-otp',
+      expiresAt,
+    });
+
+    await this.config.emailAdapter.sendOtpEmail(email, code);
+  }
+
+  async verifyOtp(
+    email: string,
+    code: string
+  ): Promise<{ user: User; token: string }> {
+    const db = this.adapter('getVerificationToken');
+
+    const record = await db.getVerificationToken!(code, 'email-otp');
+
+    if (!record || record.email !== email) throw new TokenInvalidError('Invalid or expired OTP.');
+    if (record.expiresAt < new Date()) {
+      await db.deleteVerificationToken!(code, 'email-otp');
+      throw new TokenExpiredError('OTP has expired.');
+    }
+
+    await db.deleteVerificationToken!(code, 'email-otp');
+
+    const user = await db.getUserByEmail(email);
+    if (!user) throw new UserNotFoundError();
+
+    const sessionToken = await this.sessionManager.createToken(user);
+    await this.fireSuccess({ event: 'otp-verify', userId: user.id, email, timestamp: new Date() });
     return { user, token: sessionToken };
   }
 }

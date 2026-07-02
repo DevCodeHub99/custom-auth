@@ -37,6 +37,7 @@
 12. [Auth Features](#auth-features)
     - [Email / Password](#email--password)
     - [Magic Link (Passwordless)](#magic-link-passwordless)
+    - [Email OTP (Passwordless)](#email-otp-passwordless)
     - [OAuth (Google, GitHub)](#oauth-google-github)
     - [MFA (TOTP)](#mfa-totp)
     - [Session Management](#session-management)
@@ -1116,6 +1117,22 @@ Send a one-time sign-in link valid for **15 minutes**. No password required.
 // → Sends email with link: https://yourapp.com/api/auth/magic-link/verify?token=...
 
 // GET /api/auth/magic-link/verify?token=abc123
+// → Creates session, sets cookie, returns { token, user }
+```
+
+---
+
+### Email OTP (Passwordless)
+
+Send a secure 6-digit numeric verification code to the user's email valid for **5 minutes**.
+
+```ts
+// POST /api/auth/otp
+{ "email": "user@example.com" }
+// → Sends email with code: 123456
+
+// POST /api/auth/otp/verify
+{ "email": "user@example.com", "code": "123456" }
 // → Creates session, sets cookie, returns { token, user }
 ```
 

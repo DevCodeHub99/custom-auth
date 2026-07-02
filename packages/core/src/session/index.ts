@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { AuthConfig, User } from '../interfaces';
+import { generateToken } from '../utils/crypto';
 
 export class SessionManager {
   private secret: Uint8Array;
@@ -25,7 +26,7 @@ export class SessionManager {
       jti = session.id;
     } else {
       // Fallback: random jti (revocation won't work without an adapter)
-      jti = generateFallbackJti();
+      jti = generateToken(16);
     }
 
     const payload: JWTPayload = {
@@ -77,14 +78,4 @@ function resolveExpiresAt(expiresIn: string | number): Date {
   return new Date(Date.now() + amount * multipliers[unit]);
 }
 
-/** Cryptographically random 32-char hex string — used when no DB adapter */
-function generateFallbackJti(): string {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const buf = new Uint8Array(16);
-    crypto.getRandomValues(buf);
-    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
-  }
-  // Node.js fallback
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require('crypto').randomBytes(16).toString('hex');
-}
+
