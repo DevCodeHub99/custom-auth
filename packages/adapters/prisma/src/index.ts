@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput } from '@custom-auth/core';
+import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput, Authenticator } from '@custom-auth/core';
 
 export class PrismaAdapter implements DatabaseAdapter {
   constructor(private prisma: PrismaClient) {}
@@ -67,6 +67,31 @@ export class PrismaAdapter implements DatabaseAdapter {
   ): Promise<void> {
     await (this.prisma as any).verificationToken.deleteMany({
       where: { token, type },
+    });
+  }
+
+  async createAuthenticator(data: Authenticator): Promise<void> {
+    await (this.prisma as any).authenticator.create({ data });
+  }
+
+  async getAuthenticatorById(credentialID: string): Promise<Authenticator | null> {
+    const record = await (this.prisma as any).authenticator.findUnique({
+      where: { credentialID },
+    });
+    return record ? (record as unknown as Authenticator) : null;
+  }
+
+  async listAuthenticatorsByUserId(userId: string): Promise<Authenticator[]> {
+    const records = await (this.prisma as any).authenticator.findMany({
+      where: { userId },
+    });
+    return records as unknown as Authenticator[];
+  }
+
+  async updateAuthenticatorCounter(credentialID: string, counter: number): Promise<void> {
+    await (this.prisma as any).authenticator.update({
+      where: { credentialID },
+      data: { counter },
     });
   }
 }

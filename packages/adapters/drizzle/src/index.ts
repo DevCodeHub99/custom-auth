@@ -1,4 +1,4 @@
-import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput } from '@custom-auth/core';
+import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput, Authenticator } from '@custom-auth/core';
 
 // Re-export schema for use in consumer apps
 export * from './schema';
@@ -9,6 +9,7 @@ export interface DrizzleConfig {
   usersTable: any;
   sessionsTable?: any;
   verificationTokensTable?: any;
+  authenticatorsTable?: any;
 }
 
 export class DrizzleAdapter implements DatabaseAdapter {
@@ -16,12 +17,14 @@ export class DrizzleAdapter implements DatabaseAdapter {
   private usersTable: any;
   private sessionsTable: any;
   private verificationTokensTable: any;
+  private authenticatorsTable: any;
 
   constructor(config: DrizzleConfig) {
     this.db = config.db;
     this.usersTable = config.usersTable;
     this.sessionsTable = config.sessionsTable;
     this.verificationTokensTable = config.verificationTokensTable;
+    this.authenticatorsTable = config.authenticatorsTable;
   }
 
   async createUser(data: CreateUserInput): Promise<User> {
@@ -126,5 +129,36 @@ export class DrizzleAdapter implements DatabaseAdapter {
           eq(this.verificationTokensTable.type, type)
         )
       );
+  }
+
+  async createAuthenticator(data: Authenticator): Promise<void> {
+    if (!this.authenticatorsTable) throw new Error('authenticatorsTable not provided to DrizzleAdapter');
+    await this.db.insert(this.authenticatorsTable).values(data);
+  }
+
+  async getAuthenticatorById(credentialID: string): Promise<Authenticator | null> {
+    if (!this.authenticatorsTable) throw new Error('authenticatorsTable not provided to DrizzleAdapter');
+    const [record] = await this.db
+      .select()
+      .from(this.authenticatorsTable)
+      .where(eq(this.authenticatorsTable.credentialID, credentialID));
+    return (record as Authenticator) ?? null;
+  }
+
+  async listAuthenticatorsByUserId(userId: string): Promise<Authenticator[]> {
+    if (!this.authenticatorsTable) throw new Error('authenticatorsTable not provided to DrizzleAdapter');
+    const records = await this.db
+      .select()
+      .from(this.authenticatorsTable)
+      .where(eq(this.authenticatorsTable.userId, userId));
+    return records as Authenticator[];
+  }
+
+  async updateAuthenticatorCounter(credentialID: string, counter: number): Promise<void> {
+    if (!this.authenticatorsTable) throw new Error('authenticatorsTable not provided to DrizzleAdapter');
+    await this.db
+      .update(this.authenticatorsTable)
+      .set({ counter })
+      .where(eq(this.authenticatorsTable.credentialID, credentialID));
   }
 }

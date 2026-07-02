@@ -166,6 +166,10 @@ export class CustomAuth {
       if (pathname.endsWith('/reset-password'))    return this.handleResetPassword(req);
       if (pathname.endsWith('/otp'))               return this.handleOtpRequest(req);
       if (pathname.endsWith('/otp/verify'))        return this.handleOtpVerify(req);
+      if (pathname.endsWith('/webauthn/register/options')) return this.handleWebAuthnRegisterOptions(req);
+      if (pathname.endsWith('/webauthn/register/verify'))  return this.handleWebAuthnRegisterVerify(req);
+      if (pathname.endsWith('/webauthn/login/options'))    return this.handleWebAuthnLoginOptions(req);
+      if (pathname.endsWith('/webauthn/login/verify'))     return this.handleWebAuthnLoginVerify(req);
     }
 
     // ── GET ───────────────────────────────────────────────────────────────
@@ -581,6 +585,64 @@ export class CustomAuth {
       if (!email || !code) return json({ error: 'email and code are required' }, 400);
 
       const result = await this.flows.verifyOtp(email, code);
+      const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
+      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleWebAuthnRegisterOptions(req: Request): Promise<Response> {
+    try {
+      const { userId } = await req.json();
+      if (!userId) return json({ error: 'userId is required' }, 400);
+
+      const options = await this.flows.generateRegistrationOptions(userId);
+      return json(options, 200);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleWebAuthnRegisterVerify(req: Request): Promise<Response> {
+    try {
+      const { userId, response, challenge } = await req.json();
+      if (!userId || !response || !challenge) {
+        return json({ error: 'userId, response, and challenge are required' }, 400);
+      }
+
+      await this.flows.verifyRegistration(userId, response, challenge);
+      return json({ success: true }, 200);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleWebAuthnLoginOptions(req: Request): Promise<Response> {
+    try {
+      let email: string | undefined;
+      try {
+        const body = await req.json();
+        email = body.email;
+      } catch (e) {
+        // body may be missing/empty for anonymous assertions
+      }
+
+      const options = await this.flows.generateLoginOptions(email);
+      return json(options, 200);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleWebAuthnLoginVerify(req: Request): Promise<Response> {
+    try {
+      const { response, challenge } = await req.json();
+      if (!response || !challenge) {
+        return json({ error: 'response and challenge are required' }, 400);
+      }
+
+      const result = await this.flows.verifyLogin(response, challenge);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
       return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {

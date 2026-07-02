@@ -525,3 +525,101 @@ export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
 
   return { requestOtp, verifyOtp, isLoading, error, sent };
 }
+
+// ── WebAuthn / Passkey Hook ───────────────────────────────────────────
+
+export interface UsePasskeysResult {
+  registerPasskey: (userId: string) => Promise<void>;
+  loginWithPasskey: (email?: string) => Promise<{ user: User; token: string }>;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const registerPasskey = useCallback(
+    async (userId: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { startRegistration } = await import('@simplewebauthn/browser');
+        const optionsRes = await fetch(`${apiBaseUrl}/webauthn/register/options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ userId }),
+        });
+        const optionsData = await optionsRes.json().catch(() => ({}));
+        if (!optionsRes.ok) throw new Error(optionsData.error ?? 'Failed to get registration options');
+
+        const credentialResponse = await startRegistration({ optionsJSON: optionsData });
+
+        const verifyRes = await fetch(`${apiBaseUrl}/webauthn/register/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            userId,
+            response: credentialResponse,
+            challenge: optionsData.challenge,
+          }),
+        });
+        const verifyData = await verifyRes.json().catch(() => ({}));
+        if (!verifyRes.ok) throw new Error(verifyData.error ?? 'Failed to verify registration options');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Passkey registration failed';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  const loginWithPasskey = useCallback(
+    async (email?: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { startAuthentication } = await import('@simplewebauthn/browser');
+        const optionsRes = await fetch(`${apiBaseUrl}/webauthn/login/options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: email ? JSON.stringify({ email }) : undefined,
+        });
+        const optionsData = await optionsRes.json().catch(() => ({}));
+        if (!optionsRes.ok) throw new Error(optionsData.error ?? 'Failed to get login options');
+
+        const credentialResponse = await startAuthentication({ optionsJSON: optionsData });
+
+        const verifyRes = await fetch(`${apiBaseUrl}/webauthn/login/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            response: credentialResponse,
+            challenge: optionsData.challenge,
+          }),
+        });
+        const verifyData = await verifyRes.json().catch(() => ({}));
+        if (!verifyRes.ok) throw new Error(verifyData.error ?? 'Failed to verify login');
+
+        return verifyData as { user: User; token: string };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Passkey sign in failed';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  return { registerPasskey, loginWithPasskey, isLoading, error };
+}
+

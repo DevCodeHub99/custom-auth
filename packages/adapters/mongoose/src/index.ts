@@ -1,5 +1,5 @@
 import mongoose, { Schema, Model } from 'mongoose';
-import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput } from '@custom-auth/core';
+import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, UpdateUserInput, Authenticator } from '@custom-auth/core';
 
 export const UserSchema = new Schema(
   {
@@ -33,16 +33,32 @@ export const VerificationTokenSchema = new Schema(
 );
 VerificationTokenSchema.index({ email: 1, type: 1 });
 
+export const AuthenticatorSchema = new Schema(
+  {
+    credentialID:         { type: String, required: true, unique: true },
+    credentialPublicKey:  { type: String, required: true },
+    counter:              { type: Number, required: true },
+    transports:           { type: String },
+    userId:               { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+    credentialDeviceType: { type: String, required: true },
+    credentialBackedUp:   { type: Boolean, required: true },
+  },
+  { timestamps: true }
+);
+AuthenticatorSchema.index({ userId: 1 });
+
 export interface MongooseConfig {
   UserModel?: Model<any>;
   SessionModel?: Model<any>;
   VerificationTokenModel?: Model<any>;
+  AuthenticatorModel?: Model<any>;
 }
 
 export class MongooseAdapter implements DatabaseAdapter {
   private userModel: Model<any>;
   private sessionModel: Model<any>;
   private verificationTokenModel: Model<any>;
+  private authenticatorModel: Model<any>;
 
   constructor(config?: MongooseConfig) {
     this.userModel =
@@ -55,6 +71,10 @@ export class MongooseAdapter implements DatabaseAdapter {
       config?.VerificationTokenModel ??
       (mongoose.models['VerificationToken'] ||
         mongoose.model('VerificationToken', VerificationTokenSchema));
+    this.authenticatorModel =
+      config?.AuthenticatorModel ??
+      (mongoose.models['Authenticator'] ||
+        mongoose.model('Authenticator', AuthenticatorSchema));
   }
 
   private mapUser(doc: any): User {
@@ -145,5 +165,48 @@ export class MongooseAdapter implements DatabaseAdapter {
     type: VerificationToken['type']
   ): Promise<void> {
     await this.verificationTokenModel.deleteMany({ token, type });
+  }
+
+  async createAuthenticator(data: Authenticator): Promise<void> {
+    await this.authenticatorModel.create({
+      credentialID: data.credentialID,
+      credentialPublicKey: data.credentialPublicKey,
+      counter: data.counter,
+      transports: data.transports,
+      userId: data.userId,
+      credentialDeviceType: data.credentialDeviceType,
+      credentialBackedUp: data.credentialBackedUp,
+    });
+  }
+
+  async getAuthenticatorById(credentialID: string): Promise<Authenticator | null> {
+    const record = await this.authenticatorModel.findOne({ credentialID });
+    if (!record) return null;
+    return {
+      credentialID: record.credentialID,
+      credentialPublicKey: record.credentialPublicKey,
+      counter: record.counter,
+      transports: record.transports,
+      userId: record.userId.toString(),
+      credentialDeviceType: record.credentialDeviceType,
+      credentialBackedUp: record.credentialBackedUp,
+    };
+  }
+
+  async listAuthenticatorsByUserId(userId: string): Promise<Authenticator[]> {
+    const records = await this.authenticatorModel.find({ userId });
+    return records.map(record => ({
+      credentialID: record.credentialID,
+      credentialPublicKey: record.credentialPublicKey,
+      counter: record.counter,
+      transports: record.transports,
+      userId: record.userId.toString(),
+      credentialDeviceType: record.credentialDeviceType,
+      credentialBackedUp: record.credentialBackedUp,
+    }));
+  }
+
+  async updateAuthenticatorCounter(credentialID: string, counter: number): Promise<void> {
+    await this.authenticatorModel.updateOne({ credentialID }, { counter });
   }
 }

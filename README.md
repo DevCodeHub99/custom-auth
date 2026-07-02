@@ -38,6 +38,7 @@
     - [Email / Password](#email--password)
     - [Magic Link (Passwordless)](#magic-link-passwordless)
     - [Email OTP (Passwordless)](#email-otp-passwordless)
+    - [WebAuthn / Passkeys (Passwordless)](#webauthn--passkeys-passwordless)
     - [OAuth (Google, GitHub)](#oauth-google-github)
     - [MFA (TOTP)](#mfa-totp)
     - [Session Management](#session-management)
@@ -192,6 +193,13 @@ createAuth({
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     },
   ],
+
+  // ── WebAuthn / Passkeys ──────────────────────────────────────────────
+  webauthn: {
+    rpName: 'My App',
+    rpID: 'localhost',
+    origin: 'http://localhost:3000',
+  },
 
   // ── Rate limiting ────────────────────────────────────────────────────
   rateLimiter: myRateLimiterAdapter, // see Rate Limiting section
@@ -1061,6 +1069,10 @@ All routes are mounted under your configured base path (default `/api/auth`).
 |---|---|---|---|
 | `POST` | `/magic-link` | `{ email }` | Send magic link (expires in 15 min) |
 | `GET`  | `/magic-link/verify` | `?token=...` | Verify magic link, create session |
+| `POST` | `/webauthn/register/options` | `{ userId }` | Get options to register a new Passkey |
+| `POST` | `/webauthn/register/verify` | `{ userId, response, challenge }` | Verify registration of a new Passkey |
+| `POST` | `/webauthn/login/options` | `{ email? }` | Get options to authenticate with a Passkey |
+| `POST` | `/webauthn/login/verify` | `{ response, challenge }` | Verify login with a Passkey |
 
 ### Email & Password
 
@@ -1134,6 +1146,33 @@ Send a secure 6-digit numeric verification code to the user's email valid for **
 // POST /api/auth/otp/verify
 { "email": "user@example.com", "code": "123456" }
 // → Creates session, sets cookie, returns { token, user }
+```
+
+---
+
+### WebAuthn / Passkeys (Passwordless)
+
+Register biometric face/fingerprint scanners (or hardware security keys like YubiKeys) for passwordless authentication.
+
+#### React Hook Usage:
+
+```tsx
+import { usePasskeys } from '@custom-auth/react';
+
+function PasskeyAuth() {
+  const { registerPasskey, loginWithPasskey, isLoading, error } = usePasskeys();
+
+  // 1. Register a new Passkey for a signed-in user
+  const handleRegister = async () => {
+    await registerPasskey(currentUser.id);
+  };
+
+  // 2. Log in passwordlessly using a registered Passkey
+  const handleLogin = async () => {
+    const { user, token } = await loginWithPasskey(email);
+    // Logged in!
+  };
+}
 ```
 
 ---
