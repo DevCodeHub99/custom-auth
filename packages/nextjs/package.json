@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/nextjs",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Edge-compatible Next.js helpers and middleware for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
