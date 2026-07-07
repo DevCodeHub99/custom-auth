@@ -1,5 +1,4 @@
 import { OAuthProvider, OAuthConfig } from './oauth';
-import { generateToken } from '../utils/crypto';
 
 export class GoogleProvider extends OAuthProvider {
   id = 'google';
@@ -56,6 +55,11 @@ export class GoogleProvider extends OAuthProvider {
     }
 
     const data = await response.json();
+
+    if (!data.email_verified) {
+      throw new Error('Google account email is not verified. Please verify your Google email first.');
+    }
+
     return {
       id: data.sub,
       email: data.email,

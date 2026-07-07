@@ -106,7 +106,12 @@ async function checkRateLimit(
   if (!config.rateLimiter) return null;
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
   const allowed = await config.rateLimiter.check(`${key}:${ip}`, limit, windowMs);
-  if (!allowed) return json({ error: 'Too many requests. Please try again later.' }, 429);
+  if (!allowed) {
+    const retryAfter = Math.ceil(windowMs / 1000);
+    return json({ error: 'Too many requests. Please try again later.' }, 429, {
+      'Retry-After': String(retryAfter),
+    });
+  }
   return null;
 }
 
@@ -130,8 +135,13 @@ function errorResponse(e: unknown): Response {
   if (e instanceof AuthError) {
     return json({ error: e.message, code: e.code }, e.statusCode);
   }
-  const msg = e instanceof Error ? e.message : 'An unexpected error occurred.';
-  return json({ error: msg }, 400);
+  return json({ error: 'An unexpected error occurred.' }, 400);
+}
+
+function sanitizeUser(user: any): any {
+  if (!user) return user;
+  const { passwordHash, mfaSecret, ...safeUser } = user;
+  return safeUser;
 }
 
 // ── CustomAuth class ──────────────────────────────────────────────────────
@@ -207,7 +217,7 @@ export class CustomAuth {
 
       const result = await this.flows.register(email, password, name);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 201, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 201, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -230,7 +240,7 @@ export class CustomAuth {
       }
 
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -325,7 +335,7 @@ export class CustomAuth {
         ? await this.config.adapter.getUserById(payload.sub)
         : { id: payload.sub, email: payload['email'] as string, role: payload['role'] as string };
 
-      return json({ user: user ?? null }, 200);
+      return json({ user: user ? sanitizeUser(user) : null }, 200);
     } catch {
       return json({ user: null }, 200);
     }
@@ -360,7 +370,7 @@ export class CustomAuth {
 
       const result = await this.flows.verifyMagicLink(token, decodeURIComponent(email));
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -379,7 +389,7 @@ export class CustomAuth {
 
       const result = await this.flows.verifyMfaToken(tempToken, code);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -453,7 +463,7 @@ export class CustomAuth {
       if (!token || !email) return json({ error: 'token and email are required' }, 400);
 
       const result = await this.flows.verifyEmail(token, decodeURIComponent(email));
-      return json({ user: result.user }, 200);
+      return json({ user: sanitizeUser(result.user) }, 200);
     } catch (e) {
       return errorResponse(e);
     }
@@ -557,7 +567,7 @@ export class CustomAuth {
       headers.append('Set-Cookie', authCookie);
       headers.append('Set-Cookie', clearState);
 
-      return new Response(JSON.stringify({ user: result.user, token: result.token }), {
+      return new Response(JSON.stringify({ user: sanitizeUser(result.user), token: result.token }), {
         status: 200,
         headers,
       });
@@ -583,6 +593,8 @@ export class CustomAuth {
     }
   }
 
+  // ── OTP verify ────────────────────────────────────────────────────────
+
   private async handleOtpVerify(req: Request): Promise<Response> {
     const rl = await checkRateLimit(this.config, req, 'otp-verify', 5, 60_000);
     if (rl) return rl;
@@ -593,7 +605,7 @@ export class CustomAuth {
 
       const result = await this.flows.verifyOtp(email, code);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -601,10 +613,13 @@ export class CustomAuth {
 
   private async handleWebAuthnRegisterOptions(req: Request): Promise<Response> {
     try {
-      const { userId } = await req.json();
-      if (!userId) return json({ error: 'userId is required' }, 400);
+      const token = extractToken(req);
+      if (!token) return json({ error: 'Authentication required.' }, 401);
 
-      const options = await this.flows.generateRegistrationOptions(userId);
+      const payload = await this.sessionManager.verifyToken(token);
+      if (!payload?.sub) return json({ error: 'Invalid session.' }, 401);
+
+      const options = await this.flows.generateRegistrationOptions(payload.sub);
       return json(options, 200);
     } catch (e) {
       return errorResponse(e);
@@ -613,12 +628,18 @@ export class CustomAuth {
 
   private async handleWebAuthnRegisterVerify(req: Request): Promise<Response> {
     try {
-      const { userId, response, challenge } = await req.json();
-      if (!userId || !response || !challenge) {
-        return json({ error: 'userId, response, and challenge are required' }, 400);
+      const token = extractToken(req);
+      if (!token) return json({ error: 'Authentication required.' }, 401);
+
+      const payload = await this.sessionManager.verifyToken(token);
+      if (!payload?.sub) return json({ error: 'Invalid session.' }, 401);
+
+      const { response, challenge } = await req.json();
+      if (!response || !challenge) {
+        return json({ error: 'response and challenge are required' }, 400);
       }
 
-      await this.flows.verifyRegistration(userId, response, challenge);
+      await this.flows.verifyRegistration(payload.sub, response, challenge);
       return json({ success: true }, 200);
     } catch (e) {
       return errorResponse(e);
@@ -651,7 +672,7 @@ export class CustomAuth {
 
       const result = await this.flows.verifyLogin(response, challenge);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
-      return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+      return json({ user: sanitizeUser(result.user), token: result.token }, 200, { 'Set-Cookie': setCookie });
     } catch (e) {
       return errorResponse(e);
     }
@@ -687,7 +708,7 @@ export class CustomAuth {
 
       const data = await req.json();
       const updatedUser = await this.flows.updateProfile(payload.sub, data);
-      return json({ user: updatedUser }, 200);
+      return json({ user: sanitizeUser(updatedUser) }, 200);
     } catch (e) {
       return errorResponse(e);
     }

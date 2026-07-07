@@ -73,6 +73,7 @@ export type AuthEventName =
   | 'magic-link-verify'
   | 'email-verify'
   | 'password-reset'
+  | 'password-update'
   | 'oauth-login'
   | 'token-refresh'
   | 'otp-verify'
@@ -150,6 +151,8 @@ export interface DatabaseAdapter {
   createSession?(userId: string, expiresAt: Date): Promise<Session>;
   getSession?(sessionId: string): Promise<Session | null>;
   deleteSession?(sessionId: string): Promise<void>;
+  /** Delete all sessions for a user (e.g., on password change) */
+  deleteSessionsByUserId?(userId: string): Promise<void>;
   // Verification tokens (magic link, email verify, password reset, mfa-pending)
   createVerificationToken?(data: VerificationToken): Promise<void>;
   getVerificationToken?(token: string, type: VerificationToken['type']): Promise<VerificationToken | null>;
@@ -172,6 +175,7 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   name?: string;
+  email?: string;
   passwordHash?: string;
   role?: string;
   emailVerified?: boolean;

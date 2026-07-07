@@ -2,7 +2,7 @@ import { DatabaseAdapter, User, Session, VerificationToken, CreateUserInput, Upd
 
 // Re-export schema for use in consumer apps
 export * from './schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, lt } from 'drizzle-orm';
 
 export interface DrizzleConfig {
   db: any;
@@ -66,6 +66,7 @@ export class DrizzleAdapter implements DatabaseAdapter {
       .set(data)
       .where(where)
       .returning();
+    if (!user) throw new Error('User not found');
     return user as User;
   }
 
@@ -92,6 +93,13 @@ export class DrizzleAdapter implements DatabaseAdapter {
     await this.db
       .delete(this.sessionsTable)
       .where(eq(this.sessionsTable.id, sessionId));
+  }
+
+  async deleteSessionsByUserId(userId: string): Promise<void> {
+    if (!this.sessionsTable) throw new Error('sessionsTable not provided to DrizzleAdapter');
+    await this.db
+      .delete(this.sessionsTable)
+      .where(eq(this.sessionsTable.userId, userId));
   }
 
   async createVerificationToken(data: VerificationToken): Promise<void> {
@@ -159,6 +167,11 @@ export class DrizzleAdapter implements DatabaseAdapter {
     await this.db
       .update(this.authenticatorsTable)
       .set({ counter })
-      .where(eq(this.authenticatorsTable.credentialID, credentialID));
+      .where(
+        and(
+          eq(this.authenticatorsTable.credentialID, credentialID),
+          lt(this.authenticatorsTable.counter, counter)
+        )
+      );
   }
 }
