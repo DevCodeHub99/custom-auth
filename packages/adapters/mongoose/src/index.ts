@@ -21,6 +21,8 @@ export const SessionSchema = new Schema(
   },
   { timestamps: true }
 );
+SessionSchema.index({ userId: 1 });
+SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const VerificationTokenSchema = new Schema(
   {
@@ -32,6 +34,7 @@ export const VerificationTokenSchema = new Schema(
   { timestamps: true }
 );
 VerificationTokenSchema.index({ email: 1, type: 1 });
+VerificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const AuthenticatorSchema = new Schema(
   {
@@ -142,6 +145,10 @@ export class MongooseAdapter implements DatabaseAdapter {
     await this.sessionModel.findByIdAndDelete(sessionId);
   }
 
+  async deleteSessionsByUserId(userId: string): Promise<void> {
+    await this.sessionModel.deleteMany({ userId });
+  }
+
   async createVerificationToken(data: VerificationToken): Promise<void> {
     await this.verificationTokenModel.create(data);
   }
@@ -207,6 +214,9 @@ export class MongooseAdapter implements DatabaseAdapter {
   }
 
   async updateAuthenticatorCounter(credentialID: string, counter: number): Promise<void> {
-    await this.authenticatorModel.updateOne({ credentialID }, { counter });
+    await this.authenticatorModel.updateOne(
+      { credentialID, counter: { $lt: counter } },
+      { $set: { counter } }
+    );
   }
 }

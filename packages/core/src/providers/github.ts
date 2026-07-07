@@ -63,7 +63,7 @@ export class GitHubProvider extends OAuthProvider {
       });
       if (emailResponse.ok) {
         const emails = await emailResponse.json();
-        const primaryEmail = emails.find((e: any) => e.primary && e.verified) || emails[0];
+        const primaryEmail = emails.find((e: any) => e.primary && e.verified);
         if (primaryEmail) email = primaryEmail.email;
       }
     }

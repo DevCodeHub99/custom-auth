@@ -46,6 +46,12 @@ export class SessionManager {
   async verifyToken(token: string): Promise<JWTPayload | null> {
     try {
       const { payload } = await jwtVerify(token, this.secret);
+      if (payload.jti && this.config.adapter?.getSession) {
+        const session = await this.config.adapter.getSession(payload.jti as string);
+        if (!session || session.expiresAt < new Date()) {
+          return null;
+        }
+      }
       return payload;
     } catch {
       return null;

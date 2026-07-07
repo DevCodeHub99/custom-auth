@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 
 // ── User type ────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ function parseJwt(token: string): any {
   }
 }
 
-async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
   if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -164,7 +164,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
           if (res.ok) {
             const data = await res.json();
             if (data.token) {
-              setSession(user, data.token);
+              storeToken(data.token);
+              setToken(data.token);
+              refresh();
             }
           }
         } catch {
@@ -181,7 +183,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         clearTimeout(refreshTimeoutRef.current);
       }
     };
-  }, [token, apiBaseUrl, user, setSession, refresh]);
+  }, [token, apiBaseUrl, refresh]);
 
   /**
    * Sign in with email + password.
@@ -247,8 +249,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     setSession(null, null);
   }, [apiBaseUrl, setSession]);
 
+  const contextValue = useMemo(
+    () => ({ user, isLoading, signIn, signUp, signOut, refresh, setSession }),
+    [user, isLoading, signIn, signUp, signOut, refresh, setSession]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, refresh, setSession }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

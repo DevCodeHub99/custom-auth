@@ -27,6 +27,7 @@ import {
   boolean,
   timestamp,
   uuid,
+  integer,
 } from 'drizzle-orm/pg-core';
 
 // ── users ─────────────────────────────────────────────────────────────────
@@ -76,3 +77,21 @@ export const verificationTokensTable = pgTable('auth_verification_tokens', {
 
 export type VerificationTokenRow = typeof verificationTokensTable.$inferSelect;
 export type NewVerificationTokenRow = typeof verificationTokensTable.$inferInsert;
+
+// ── authenticators ────────────────────────────────────────────────────────
+
+export const authenticatorsTable = pgTable('auth_authenticators', {
+  credentialID: text('credential_id').primaryKey(),
+  credentialPublicKey: text('credential_public_key').notNull(),
+  counter: integer('counter').notNull().default(0),
+  transports: text('transports'),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => usersTable.id, { onDelete: 'cascade' }),
+  credentialDeviceType: text('credential_device_type').notNull(),
+  credentialBackedUp: boolean('credential_backed_up').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type AuthenticatorRow = typeof authenticatorsTable.$inferSelect;
+export type NewAuthenticatorRow = typeof authenticatorsTable.$inferInsert;

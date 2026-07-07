@@ -47,6 +47,10 @@ export class PrismaAdapter implements DatabaseAdapter {
     await this.prisma.session.deleteMany({ where: { id: sessionId } });
   }
 
+  async deleteSessionsByUserId(userId: string): Promise<void> {
+    await this.prisma.session.deleteMany({ where: { userId } });
+  }
+
   async createVerificationToken(data: VerificationToken): Promise<void> {
     await (this.prisma as any).verificationToken.create({ data });
   }
@@ -89,8 +93,8 @@ export class PrismaAdapter implements DatabaseAdapter {
   }
 
   async updateAuthenticatorCounter(credentialID: string, counter: number): Promise<void> {
-    await (this.prisma as any).authenticator.update({
-      where: { credentialID },
+    await (this.prisma as any).authenticator.updateMany({
+      where: { credentialID, counter: { lt: counter } },
       data: { counter },
     });
   }

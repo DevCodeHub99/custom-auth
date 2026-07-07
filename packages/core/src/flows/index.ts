@@ -55,6 +55,9 @@ export class AuthFlows {
     if (!password || password.length < MIN_PASSWORD_LENGTH) {
       throw new PasswordTooShortError(MIN_PASSWORD_LENGTH);
     }
+    if (password.length > 72) {
+      throw new AuthError('Password must not exceed 72 characters.', 'INVALID_CREDENTIALS', 400);
+    }
   }
 
   private validateEmail(email: string | undefined): asserts email is string {
@@ -65,6 +68,10 @@ export class AuthFlows {
     if (!emailRegex.test(email)) {
       throw new AuthError('Invalid email format.', 'INVALID_CREDENTIALS', 400);
     }
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
   }
 
   private async fireSuccess(event: AuthEvent) {
@@ -83,6 +90,7 @@ export class AuthFlows {
     name?: string
   ): Promise<{ user: User; token: string }> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter();
 
     const existingUser = await db.getUserByEmail(email);
@@ -139,6 +147,7 @@ export class AuthFlows {
     password?: string
   ): Promise<{ user: User; token: string } | { mfaRequired: true; tempToken: string }> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter();
 
     const user = await db.getUserByEmail(email);
@@ -161,6 +170,10 @@ export class AuthFlows {
         await this.fireError({ event: 'login', error: err, email, timestamp: new Date() });
         throw err;
       }
+    } else {
+      const err = new InvalidCredentialsError('This account uses passwordless authentication. Please sign in with your original method.');
+      await this.fireError({ event: 'login', error: err, email, timestamp: new Date() });
+      throw err;
     }
 
     // MFA gate
@@ -226,6 +239,8 @@ export class AuthFlows {
   // ── email verify ─────────────────────────────────────────────────────
 
   async verifyEmail(token: string, email: string): Promise<{ user: User }> {
+    this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(token, 'email-verify');
@@ -246,6 +261,7 @@ export class AuthFlows {
 
   async requestMagicLink(email: string, callbackUrl: string): Promise<void> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
 
@@ -273,6 +289,7 @@ export class AuthFlows {
     email: string
   ): Promise<{ user: User; token: string }> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(token, 'magic-link');
@@ -297,6 +314,7 @@ export class AuthFlows {
 
   async requestPasswordReset(email: string, resetUrl: string): Promise<void> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
 
@@ -320,6 +338,7 @@ export class AuthFlows {
 
   async resetPassword(token: string, email: string, newPassword: string): Promise<void> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(token, 'password-reset');
@@ -335,7 +354,12 @@ export class AuthFlows {
     await db.deleteVerificationToken!(token, 'password-reset');
 
     const passwordHash = await hashPassword(newPassword, this.bcryptRounds);
-    await db.updateUser!(email, { passwordHash });
+    const user = await db.updateUser!(email, { passwordHash });
+
+    // Invalidate all existing sessions for this user on password reset
+    if (db.deleteSessionsByUserId) {
+      await db.deleteSessionsByUserId(user.id);
+    }
 
     await this.fireSuccess({ event: 'password-reset', email, timestamp: new Date() });
   }
@@ -360,7 +384,9 @@ export class AuthFlows {
     const encodedAccount = encodeURIComponent(user.email.trim());
     const otpauthUrl = `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secret.base32}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
 
-    // Don't persist yet — only enable after user verifies the first code
+    // Persist secret server-side so enableMfa can verify it without relying on client-provided secret
+    await db.updateUser!(userId, { mfaSecret: secret.base32 });
+
     const qrCodeUrl = await qrcode.default.toDataURL(otpauthUrl);
 
     return {
@@ -373,9 +399,17 @@ export class AuthFlows {
   async enableMfa(userId: string, secret: string, totpCode: string): Promise<void> {
     const db = this.adapter('updateUser');
 
+    const user = await db.getUserById(userId);
+    if (!user) throw new UserNotFoundError();
+
+    const serverSecret = user.mfaSecret;
+    if (!serverSecret) {
+      throw new AuthError('MFA setup has not been initiated. Please call setupMfa first.', 'MFA_INVALID', 400);
+    }
+
     const speakeasy = await import('speakeasy');
     const isValid = speakeasy.default.totp.verify({
-      secret,
+      secret: serverSecret,
       encoding: 'base32',
       token: totpCode,
       window: 1,
@@ -383,7 +417,7 @@ export class AuthFlows {
 
     if (!isValid) throw new MfaInvalidError('TOTP code does not match secret. Please try again.');
 
-    await db.updateUser!(userId, { mfaEnabled: true, mfaSecret: secret });
+    await db.updateUser!(userId, { mfaEnabled: true });
   }
 
   async disableMfa(userId: string, totpCode: string): Promise<void> {
@@ -460,6 +494,7 @@ export class AuthFlows {
 
   async requestOtp(email: string): Promise<void> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
     if (!this.config.emailAdapter.sendOtpEmail) {
@@ -489,6 +524,7 @@ export class AuthFlows {
     code: string
   ): Promise<{ user: User; token: string }> {
     this.validateEmail(email);
+    email = this.normalizeEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(code, 'email-otp');
@@ -614,6 +650,8 @@ export class AuthFlows {
 
     let allowCredentials: any[] = [];
     if (email) {
+      this.validateEmail(email);
+      email = this.normalizeEmail(email);
       const db = this.adapter('getUserByEmail');
       const user = await db.getUserByEmail(email);
       if (user) {
@@ -726,7 +764,12 @@ export class AuthFlows {
     const newPasswordHash = await hashPassword(newPassword, this.bcryptRounds);
     await db.updateUser!(userId, { passwordHash: newPasswordHash });
 
-    await this.fireSuccess({ event: 'password-reset', email: user.email, timestamp: new Date() });
+    // Invalidate all existing sessions for this user on password update
+    if (db.deleteSessionsByUserId) {
+      await db.deleteSessionsByUserId(userId);
+    }
+
+    await this.fireSuccess({ event: 'password-update', userId, email: user.email, timestamp: new Date() });
   }
 
   async updateProfile(
@@ -741,11 +784,12 @@ export class AuthFlows {
     if (data.name !== undefined) updateFields.name = data.name;
     if (data.email !== undefined) {
       this.validateEmail(data.email);
-      const existing = await db.getUserByEmail(data.email);
+      const normalizedEmail = this.normalizeEmail(data.email);
+      const existing = await db.getUserByEmail(normalizedEmail);
       if (existing && existing.id !== userId) {
         throw new UserExistsError('Email already in use.');
       }
-      updateFields.email = data.email;
+      updateFields.email = normalizedEmail;
     }
 
     if (Object.keys(updateFields).length === 0) return user;
