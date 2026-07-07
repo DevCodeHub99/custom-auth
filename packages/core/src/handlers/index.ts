@@ -153,6 +153,11 @@ export class CustomAuth {
 
     // ── POST ──────────────────────────────────────────────────────────────
     if (method === 'POST') {
+      const csrfValid = await this.verifyCsrf(req);
+      if (!csrfValid) {
+        return json({ error: 'CSRF validation failed. Missing or mismatched origin / custom headers.' }, 403);
+      }
+
       if (pathname.endsWith('/register'))          return this.handleRegister(req);
       if (pathname.endsWith('/login'))             return this.handleLogin(req);
       if (pathname.endsWith('/logout'))            return this.handleLogout(req);
@@ -686,6 +691,68 @@ export class CustomAuth {
     } catch (e) {
       return errorResponse(e);
     }
+  }
+
+  private async verifyCsrf(req: Request): Promise<boolean> {
+    if (this.config.csrf?.disabled) {
+      return true;
+    }
+
+    // 1. Authorization header present => safe from CSRF
+    const auth = req.headers.get('authorization') || '';
+    if (auth.startsWith('Bearer ')) {
+      return true;
+    }
+
+    // 2. Custom header present => safe from CSRF
+    if (
+      req.headers.has('x-csrf-protection') ||
+      req.headers.has('x-csrf-token') ||
+      req.headers.has('x-requested-with')
+    ) {
+      return true;
+    }
+
+    // 3. Origin/Referer check
+    const origin = req.headers.get('origin');
+    const referer = req.headers.get('referer');
+    const requestUrl = new URL(req.url);
+
+    const allowed = new Set<string>();
+    allowed.add(requestUrl.origin);
+
+    if (this.config.webauthn?.origin) {
+      try {
+        allowed.add(new URL(this.config.webauthn.origin).origin);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (this.config.csrf?.allowedOrigins) {
+      this.config.csrf.allowedOrigins.forEach(o => {
+        try {
+          allowed.add(new URL(o).origin);
+        } catch {
+          allowed.add(o);
+        }
+      });
+    }
+
+    if (origin) {
+      return allowed.has(origin);
+    }
+
+    if (referer) {
+      try {
+        const refOrigin = new URL(referer).origin;
+        return allowed.has(refOrigin);
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
   }
 }
 

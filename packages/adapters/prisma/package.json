@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/prisma",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "Prisma database adapter for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -44,5 +44,6 @@
     "custom-auth"
   ]
 }
+
 
 

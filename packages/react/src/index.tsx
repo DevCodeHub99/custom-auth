@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 // ── User type ────────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ── Token Storage Helpers ──────────────────────────────────────────────────
+// ── Token Storage & JWT Helpers ───────────────────────────────────────────
 
 const getStoredToken = (): string | null => {
   if (typeof window !== 'undefined') {
@@ -52,11 +52,31 @@ const removeStoredToken = () => {
   }
 };
 
+function parseJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
   if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  
+  // Custom CSRF Mitigation Header
+  headers.set('X-CSRF-Protection', '1');
+
   const token = getStoredToken();
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -79,15 +99,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   apiBaseUrl = '/api/auth',
 }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(() => getStoredToken());
   const [isLoading, setIsLoading] = useState(true);
+  const refreshTimeoutRef = useRef<any>(null);
 
-  const setSession = useCallback((newUser: User | null, token: string | null) => {
-    if (token) {
-      storeToken(token);
+  const setSession = useCallback((newUser: User | null, newToken: string | null) => {
+    if (newToken) {
+      storeToken(newToken);
     } else {
       removeStoredToken();
     }
     setUser(newUser);
+    setToken(newToken);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -97,6 +120,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
       if (res.ok) {
         const data = await res.json();
         setUser(data.user ?? null);
+        const currentTok = getStoredToken();
+        setToken(currentTok);
       } else {
         setSession(null, null);
       }
@@ -110,6 +135,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Automatic Silent Refresh Scheduler
+  useEffect(() => {
+    if (!token || typeof window === 'undefined') {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const payload = parseJwt(token);
+    if (!payload || !payload.exp) return;
+
+    const expMs = payload.exp * 1000;
+    const timeBeforeRefresh = 60_000; // refresh 1 minute before expiry
+    const delay = expMs - Date.now() - timeBeforeRefresh;
+
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    if (delay > 0) {
+      refreshTimeoutRef.current = setTimeout(async () => {
+        try {
+          const res = await customFetch(`${apiBaseUrl}/refresh`, { method: 'POST', credentials: 'include' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+              setSession(user, data.token);
+            }
+          }
+        } catch {
+          // Retry after 10 seconds on network failure
+          refreshTimeoutRef.current = setTimeout(() => {
+            refresh();
+          }, 10000);
+        }
+      }, delay);
+    }
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [token, apiBaseUrl, user, setSession, refresh]);
 
   /**
    * Sign in with email + password.

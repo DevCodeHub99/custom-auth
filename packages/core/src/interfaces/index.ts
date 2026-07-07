@@ -132,6 +132,10 @@ export interface AuthConfig {
     rpID: string;
     origin: string;
   };
+  csrf?: {
+    disabled?: boolean;
+    allowedOrigins?: string[];
+  };
 }
 
 export interface DatabaseAdapter {
