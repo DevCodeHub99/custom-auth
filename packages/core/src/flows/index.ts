@@ -57,6 +57,16 @@ export class AuthFlows {
     }
   }
 
+  private validateEmail(email: string | undefined): asserts email is string {
+    if (!email) {
+      throw new AuthError('Email is required.', 'INVALID_CREDENTIALS', 400);
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new AuthError('Invalid email format.', 'INVALID_CREDENTIALS', 400);
+    }
+  }
+
   private async fireSuccess(event: AuthEvent) {
     try { await this.config.hooks?.onSuccess?.(event); } catch { /* hooks must not break flows */ }
   }
@@ -72,6 +82,7 @@ export class AuthFlows {
     password?: string,
     name?: string
   ): Promise<{ user: User; token: string }> {
+    this.validateEmail(email);
     const db = this.adapter();
 
     const existingUser = await db.getUserByEmail(email);
@@ -127,6 +138,7 @@ export class AuthFlows {
     email: string,
     password?: string
   ): Promise<{ user: User; token: string } | { mfaRequired: true; tempToken: string }> {
+    this.validateEmail(email);
     const db = this.adapter();
 
     const user = await db.getUserByEmail(email);
@@ -233,6 +245,7 @@ export class AuthFlows {
   // ── magic link ───────────────────────────────────────────────────────
 
   async requestMagicLink(email: string, callbackUrl: string): Promise<void> {
+    this.validateEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
 
@@ -259,6 +272,7 @@ export class AuthFlows {
     token: string,
     email: string
   ): Promise<{ user: User; token: string }> {
+    this.validateEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(token, 'magic-link');
@@ -282,6 +296,7 @@ export class AuthFlows {
   // ── password reset ───────────────────────────────────────────────────
 
   async requestPasswordReset(email: string, resetUrl: string): Promise<void> {
+    this.validateEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
 
@@ -304,6 +319,7 @@ export class AuthFlows {
   }
 
   async resetPassword(token: string, email: string, newPassword: string): Promise<void> {
+    this.validateEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(token, 'password-reset');
@@ -443,6 +459,7 @@ export class AuthFlows {
   // ── Email OTP ─────────────────────────────────────────────────────────
 
   async requestOtp(email: string): Promise<void> {
+    this.validateEmail(email);
     const db = this.adapter('createVerificationToken');
     if (!this.config.emailAdapter) throw new MissingConfigError('emailAdapter');
     if (!this.config.emailAdapter.sendOtpEmail) {
@@ -471,6 +488,7 @@ export class AuthFlows {
     email: string,
     code: string
   ): Promise<{ user: User; token: string }> {
+    this.validateEmail(email);
     const db = this.adapter('getVerificationToken');
 
     const record = await db.getVerificationToken!(code, 'email-otp');
@@ -722,9 +740,7 @@ export class AuthFlows {
     const updateFields: any = {};
     if (data.name !== undefined) updateFields.name = data.name;
     if (data.email !== undefined) {
-      if (!data.email.includes('@')) {
-        throw new AuthError('Invalid email format.', 'INVALID_CREDENTIALS', 400);
-      }
+      this.validateEmail(data.email);
       const existing = await db.getUserByEmail(data.email);
       if (existing && existing.id !== userId) {
         throw new UserExistsError('Email already in use.');

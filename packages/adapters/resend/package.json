@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/adapter-resend",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "Resend email adapter for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -53,5 +53,6 @@
     "custom-auth"
   ]
 }
+
 
 
