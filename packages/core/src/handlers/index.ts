@@ -164,6 +164,8 @@ export class CustomAuth {
       if (pathname.endsWith('/mfa/disable'))       return this.handleMfaDisable(req);
       if (pathname.endsWith('/forgot-password'))   return this.handleForgotPassword(req);
       if (pathname.endsWith('/reset-password'))    return this.handleResetPassword(req);
+      if (pathname.endsWith('/password/update'))   return this.handlePasswordUpdate(req);
+      if (pathname.endsWith('/profile/update'))    return this.handleProfileUpdate(req);
       if (pathname.endsWith('/otp'))               return this.handleOtpRequest(req);
       if (pathname.endsWith('/otp/verify'))        return this.handleOtpVerify(req);
       if (pathname.endsWith('/webauthn/register/options')) return this.handleWebAuthnRegisterOptions(req);
@@ -645,6 +647,42 @@ export class CustomAuth {
       const result = await this.flows.verifyLogin(response, challenge);
       const setCookie = buildSetCookieHeader(result.token, this.config.cookies);
       return json({ user: result.user, token: result.token }, 200, { 'Set-Cookie': setCookie });
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handlePasswordUpdate(req: Request): Promise<Response> {
+    try {
+      const token = extractToken(req);
+      if (!token) return json({ error: 'Authentication required.' }, 401);
+
+      const payload = await this.sessionManager.verifyToken(token);
+      if (!payload?.sub) return json({ error: 'Invalid session.' }, 401);
+
+      const { currentPassword, newPassword } = await req.json();
+      if (!currentPassword || !newPassword) {
+        return json({ error: 'currentPassword and newPassword are required' }, 400);
+      }
+
+      await this.flows.updatePassword(payload.sub, currentPassword, newPassword);
+      return json({ success: true }, 200);
+    } catch (e) {
+      return errorResponse(e);
+    }
+  }
+
+  private async handleProfileUpdate(req: Request): Promise<Response> {
+    try {
+      const token = extractToken(req);
+      if (!token) return json({ error: 'Authentication required.' }, 401);
+
+      const payload = await this.sessionManager.verifyToken(token);
+      if (!payload?.sub) return json({ error: 'Invalid session.' }, 401);
+
+      const data = await req.json();
+      const updatedUser = await this.flows.updateProfile(payload.sub, data);
+      return json({ user: updatedUser }, 200);
     } catch (e) {
       return errorResponse(e);
     }

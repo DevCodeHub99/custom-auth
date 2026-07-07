@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/mongoose",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Mongoose database adapter for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -42,4 +42,5 @@
     "custom-auth"
   ]
 }
+
 

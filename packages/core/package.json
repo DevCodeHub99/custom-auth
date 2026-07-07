@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/core",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "The framework-agnostic core engine for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -65,4 +65,5 @@
     "biometric"
   ]
 }
+
 

@@ -26,9 +26,46 @@ export interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
+  setSession: (user: User | null, token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ── Token Storage Helpers ──────────────────────────────────────────────────
+
+const getStoredToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('auth-token');
+  }
+  return null;
+};
+
+const storeToken = (token: string) => {
+  if (typeof window !== 'undefined' && token) {
+    localStorage.setItem('auth-token', token);
+  }
+};
+
+const removeStoredToken = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('auth-token');
+  }
+};
+
+async function customFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers || {});
+  if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = getStoredToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
 
 // ── Provider ──────────────────────────────────────────────────────────────
 
@@ -44,22 +81,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const setSession = useCallback((newUser: User | null, token: string | null) => {
+    if (token) {
+      storeToken(token);
+    } else {
+      removeStoredToken();
+    }
+    setUser(newUser);
+  }, []);
+
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/session`, { credentials: 'include' });
+      const res = await customFetch(`${apiBaseUrl}/session`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setUser(data.user ?? null);
       } else {
-        setUser(null);
+        setSession(null, null);
       }
     } catch {
-      setUser(null);
+      setSession(null, null);
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, setSession]);
 
   useEffect(() => {
     refresh();
@@ -68,17 +114,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
   /**
    * Sign in with email + password.
    * Returns a discriminated union — never throws for expected auth outcomes.
-   *
-   *   const result = await signIn(email, password);
-   *   if (!result.ok && result.mfaRequired) {
-   *     // show TOTP prompt, pass result.tempToken to verifyMfa()
-   *   }
    */
   const signIn = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
-      const res = await fetch(`${apiBaseUrl}/login`, {
+      const res = await customFetch(`${apiBaseUrl}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
@@ -93,44 +133,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         return { ok: false, mfaRequired: true, tempToken: data.tempToken };
       }
 
-      // Success path: sync session state
-      if (data.user) setUser(data.user);
-      else await refresh();
+      // Success path: sync session state instantly
+      if (data.token) {
+        setSession(data.user, data.token);
+      } else {
+        setUser(data.user ?? null);
+      }
 
       return { ok: true, user: data.user };
     },
-    [apiBaseUrl, refresh]
+    [apiBaseUrl, setSession]
   );
 
   const signUp = useCallback(
     async (email: string, password: string, name?: string) => {
-      const res = await fetch(`${apiBaseUrl}/register`, {
+      const res = await customFetch(`${apiBaseUrl}/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ email, password, name }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? 'Sign up failed');
       }
 
-      await refresh();
+      if (data.token) {
+        setSession(data.user, data.token);
+      } else {
+        await refresh();
+      }
     },
-    [apiBaseUrl, refresh]
+    [apiBaseUrl, setSession, refresh]
   );
 
   const signOut = useCallback(async () => {
-    await fetch(`${apiBaseUrl}/logout`, {
+    await customFetch(`${apiBaseUrl}/logout`, {
       method: 'POST',
       credentials: 'include',
     });
-    setUser(null);
-  }, [apiBaseUrl]);
+    setSession(null, null);
+  }, [apiBaseUrl, setSession]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, refresh }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, refresh, setSession }}>
       {children}
     </AuthContext.Provider>
   );
@@ -236,9 +282,8 @@ export function useMagicLink(apiBaseUrl = '/api/auth'): UseMagicLinkResult {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${apiBaseUrl}/magic-link`, {
+        const res = await customFetch(`${apiBaseUrl}/magic-link`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ email, callbackUrl }),
         });
@@ -278,9 +323,8 @@ export function useForgotPassword(apiBaseUrl = '/api/auth'): UseForgotPasswordRe
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${apiBaseUrl}/forgot-password`, {
+        const res = await customFetch(`${apiBaseUrl}/forgot-password`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         });
         const data = await res.json().catch(() => ({}));
@@ -319,9 +363,8 @@ export function useResetPassword(apiBaseUrl = '/api/auth'): UseResetPasswordResu
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${apiBaseUrl}/reset-password`, {
+        const res = await customFetch(`${apiBaseUrl}/reset-password`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, email, password }),
         });
         const data = await res.json().catch(() => ({}));
@@ -374,11 +417,11 @@ export interface UseMfaResult {
 }
 
 export function useMfa(apiBaseUrl = '/api/auth'): UseMfaResult {
+  const authContext = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const wrap = useCallback(
-    // eslint-disable-next-line @typescript-eslint/comma-dangle
     async <T,>(fn: () => Promise<T>): Promise<T> => {
       setIsLoading(true);
       setError(null);
@@ -398,23 +441,30 @@ export function useMfa(apiBaseUrl = '/api/auth'): UseMfaResult {
   const verifyMfa = useCallback(
     (tempToken: string, code: string) =>
       wrap(async () => {
-        const res = await fetch(`${apiBaseUrl}/mfa/verify`, {
+        const res = await customFetch(`${apiBaseUrl}/mfa/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ tempToken, code }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? 'MFA verification failed');
+
+        if (data.token) {
+          storeToken(data.token);
+          if (authContext) {
+            authContext.setSession(data.user, data.token);
+          }
+        }
+
         return data as { user: User };
       }),
-    [apiBaseUrl, wrap]
+    [apiBaseUrl, wrap, authContext]
   );
 
   const setupMfa = useCallback(
     () =>
       wrap(async () => {
-        const res = await fetch(`${apiBaseUrl}/mfa/setup`, {
+        const res = await customFetch(`${apiBaseUrl}/mfa/setup`, {
           method: 'POST',
           credentials: 'include',
         });
@@ -428,9 +478,8 @@ export function useMfa(apiBaseUrl = '/api/auth'): UseMfaResult {
   const enableMfa = useCallback(
     (secret: string, code: string) =>
       wrap(async () => {
-        const res = await fetch(`${apiBaseUrl}/mfa/enable`, {
+        const res = await customFetch(`${apiBaseUrl}/mfa/enable`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ secret, code }),
         });
@@ -443,9 +492,8 @@ export function useMfa(apiBaseUrl = '/api/auth'): UseMfaResult {
   const disableMfa = useCallback(
     (code: string) =>
       wrap(async () => {
-        const res = await fetch(`${apiBaseUrl}/mfa/disable`, {
+        const res = await customFetch(`${apiBaseUrl}/mfa/disable`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ code }),
         });
@@ -469,6 +517,7 @@ export interface UseOtpResult {
 }
 
 export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
+  const authContext = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -478,9 +527,8 @@ export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${apiBaseUrl}/otp`, {
+        const res = await customFetch(`${apiBaseUrl}/otp`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ email }),
         });
@@ -503,14 +551,21 @@ export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${apiBaseUrl}/otp/verify`, {
+        const res = await customFetch(`${apiBaseUrl}/otp/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ email, code }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? 'OTP verification failed');
+
+        if (data.token) {
+          storeToken(data.token);
+          if (authContext) {
+            authContext.setSession(data.user, data.token);
+          }
+        }
+
         return data as { user: User };
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'OTP verification failed';
@@ -520,7 +575,7 @@ export function useOtp(apiBaseUrl = '/api/auth'): UseOtpResult {
         setIsLoading(false);
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, authContext]
   );
 
   return { requestOtp, verifyOtp, isLoading, error, sent };
@@ -536,6 +591,7 @@ export interface UsePasskeysResult {
 }
 
 export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
+  const authContext = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -545,9 +601,8 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
       setError(null);
       try {
         const { startRegistration } = await import('@simplewebauthn/browser');
-        const optionsRes = await fetch(`${apiBaseUrl}/webauthn/register/options`, {
+        const optionsRes = await customFetch(`${apiBaseUrl}/webauthn/register/options`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ userId }),
         });
@@ -556,9 +611,8 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
 
         const credentialResponse = await startRegistration({ optionsJSON: optionsData });
 
-        const verifyRes = await fetch(`${apiBaseUrl}/webauthn/register/verify`, {
+        const verifyRes = await customFetch(`${apiBaseUrl}/webauthn/register/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             userId,
@@ -585,9 +639,8 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
       setError(null);
       try {
         const { startAuthentication } = await import('@simplewebauthn/browser');
-        const optionsRes = await fetch(`${apiBaseUrl}/webauthn/login/options`, {
+        const optionsRes = await customFetch(`${apiBaseUrl}/webauthn/login/options`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: email ? JSON.stringify({ email }) : undefined,
         });
@@ -596,9 +649,8 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
 
         const credentialResponse = await startAuthentication({ optionsJSON: optionsData });
 
-        const verifyRes = await fetch(`${apiBaseUrl}/webauthn/login/verify`, {
+        const verifyRes = await customFetch(`${apiBaseUrl}/webauthn/login/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             response: credentialResponse,
@@ -607,6 +659,13 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
         });
         const verifyData = await verifyRes.json().catch(() => ({}));
         if (!verifyRes.ok) throw new Error(verifyData.error ?? 'Failed to verify login');
+
+        if (verifyData.token) {
+          storeToken(verifyData.token);
+          if (authContext) {
+            authContext.setSession(verifyData.user, verifyData.token);
+          }
+        }
 
         return verifyData as { user: User; token: string };
       } catch (e) {
@@ -617,9 +676,95 @@ export function usePasskeys(apiBaseUrl = '/api/auth'): UsePasskeysResult {
         setIsLoading(false);
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, authContext]
   );
 
   return { registerPasskey, loginWithPasskey, isLoading, error };
 }
 
+// ── Profile Management Hooks ──────────────────────────────────────────
+
+export interface UseUpdatePasswordResult {
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+  success: boolean;
+}
+
+export function useUpdatePassword(apiBaseUrl = '/api/auth'): UseUpdatePasswordResult {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const updatePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      setIsLoading(true);
+      setError(null);
+      setSuccess(false);
+      try {
+        const res = await customFetch(`${apiBaseUrl}/password/update`, {
+          method: 'POST',
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? 'Password update failed');
+        setSuccess(true);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Password update failed';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  return { updatePassword, isLoading, error, success };
+}
+
+export interface UseUpdateProfileResult {
+  updateProfile: (data: { name?: string; email?: string }) => Promise<User>;
+  isLoading: boolean;
+  error: string | null;
+  success: boolean;
+}
+
+export function useUpdateProfile(apiBaseUrl = '/api/auth'): UseUpdateProfileResult {
+  const authContext = useContext(AuthContext);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const updateProfile = useCallback(
+    async (updateData: { name?: string; email?: string }) => {
+      setIsLoading(true);
+      setError(null);
+      setSuccess(false);
+      try {
+        const res = await customFetch(`${apiBaseUrl}/profile/update`, {
+          method: 'POST',
+          body: JSON.stringify(updateData),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? 'Profile update failed');
+
+        if (authContext) {
+          authContext.setSession(data.user, getStoredToken());
+        }
+
+        setSuccess(true);
+        return data.user as User;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Profile update failed';
+        setError(msg);
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl, authContext]
+  );
+
+  return { updateProfile, isLoading, error, success };
+}

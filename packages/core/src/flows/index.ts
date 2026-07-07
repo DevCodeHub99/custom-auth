@@ -336,17 +336,21 @@ export class AuthFlows {
     const qrcode = await import('qrcode');
 
     const secret = speakeasy.default.generateSecret({
-      name: `Auth (${user.email})`,
       length: 20,
     });
 
+    const issuer = this.config.webauthn?.rpName || 'CustomAuth';
+    const encodedIssuer = encodeURIComponent(issuer.trim());
+    const encodedAccount = encodeURIComponent(user.email.trim());
+    const otpauthUrl = `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secret.base32}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
+
     // Don't persist yet — only enable after user verifies the first code
-    const qrCodeUrl = await qrcode.default.toDataURL(secret.otpauth_url!);
+    const qrCodeUrl = await qrcode.default.toDataURL(otpauthUrl);
 
     return {
       secret: secret.base32,
       qrCodeUrl,
-      otpauthUrl: secret.otpauth_url!,
+      otpauthUrl,
     };
   }
 
@@ -561,9 +565,13 @@ export class AuthFlows {
     const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
     const { id: credentialID, publicKey: credentialPublicKey, counter } = credential;
 
+    const rawCredentialID = typeof credentialID === 'string'
+      ? credentialID
+      : Buffer.from(credentialID).toString('base64url');
+
     const createAuthenticator = this.adapter('createAuthenticator');
     await createAuthenticator.createAuthenticator!({
-      credentialID: Buffer.from(credentialID).toString('base64url'),
+      credentialID: rawCredentialID,
       credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
       counter,
       userId: user.id,
@@ -671,5 +679,62 @@ export class AuthFlows {
     });
 
     return { user, token: sessionToken };
+  }
+
+  async updatePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    const db = this.adapter('getUserById');
+    const user = await db.getUserById(userId);
+    if (!user) throw new UserNotFoundError();
+
+    if (!user.passwordHash) {
+      throw new AuthError('Cannot update password for passwordless-only accounts.', 'INVALID_CREDENTIALS', 400);
+    }
+
+    const isCorrect = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isCorrect) {
+      throw new InvalidCredentialsError('Incorrect current password.');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new AuthError('New password cannot be the same as current password.', 'INVALID_CREDENTIALS', 400);
+    }
+
+    this.validatePassword(newPassword);
+
+    const newPasswordHash = await hashPassword(newPassword, this.bcryptRounds);
+    await db.updateUser!(userId, { passwordHash: newPasswordHash });
+
+    await this.fireSuccess({ event: 'password-reset', email: user.email, timestamp: new Date() });
+  }
+
+  async updateProfile(
+    userId: string,
+    data: { name?: string; email?: string }
+  ): Promise<User> {
+    const db = this.adapter('getUserById');
+    const user = await db.getUserById(userId);
+    if (!user) throw new UserNotFoundError();
+
+    const updateFields: any = {};
+    if (data.name !== undefined) updateFields.name = data.name;
+    if (data.email !== undefined) {
+      if (!data.email.includes('@')) {
+        throw new AuthError('Invalid email format.', 'INVALID_CREDENTIALS', 400);
+      }
+      const existing = await db.getUserByEmail(data.email);
+      if (existing && existing.id !== userId) {
+        throw new UserExistsError('Email already in use.');
+      }
+      updateFields.email = data.email;
+    }
+
+    if (Object.keys(updateFields).length === 0) return user;
+
+    const updatedUser = await db.updateUser!(userId, updateFields);
+    return updatedUser;
   }
 }
