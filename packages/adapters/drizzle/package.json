@@ -1,6 +1,6 @@
 {
   "name": "@custom-auth/drizzle",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Drizzle ORM database adapter for @custom-auth.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -59,4 +59,5 @@
     "custom-auth"
   ]
 }
+
 
