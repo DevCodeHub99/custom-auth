@@ -56,20 +56,18 @@ export class GitHubProvider extends OAuthProvider {
 
     const profileData = await profileResponse.json();
 
-    let email = profileData.email;
-    if (!email) {
-      const emailResponse = await fetch('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github.v3+json' },
-      });
-      if (emailResponse.ok) {
-        const emails = await emailResponse.json();
-        const primaryEmail = emails.find((e: any) => e.primary && e.verified);
-        if (primaryEmail) email = primaryEmail.email;
-      }
+    let email: string | undefined;
+    const emailResponse = await fetch('https://api.github.com/user/emails', {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/vnd.github.v3+json' },
+    });
+    if (emailResponse.ok) {
+      const emails = await emailResponse.json();
+      const verifiedEmail = emails.find((e: any) => e.verified);
+      if (verifiedEmail) email = verifiedEmail.email;
     }
 
     if (!email) {
-      throw new Error('GitHub account has no accessible email address. Make sure email is public or email scope is granted.');
+      throw new Error('GitHub account has no verified email address. Please verify your email on GitHub first.');
     }
 
     return {
