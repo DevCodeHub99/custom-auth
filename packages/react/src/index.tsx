@@ -33,7 +33,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── Token Storage & JWT Helpers ───────────────────────────────────────────
 
+let globalTokenStorage: 'localStorage' | 'cookie' = 'localStorage';
+
+export function setTokenStorage(storage: 'localStorage' | 'cookie') {
+  globalTokenStorage = storage;
+}
+
 const getStoredToken = (): string | null => {
+  if (globalTokenStorage === 'cookie') return null;
   if (typeof window !== 'undefined') {
     return localStorage.getItem('auth-token');
   }
@@ -41,12 +48,14 @@ const getStoredToken = (): string | null => {
 };
 
 const storeToken = (token: string) => {
+  if (globalTokenStorage === 'cookie') return;
   if (typeof window !== 'undefined' && token) {
     localStorage.setItem('auth-token', token);
   }
 };
 
 const removeStoredToken = () => {
+  if (globalTokenStorage === 'cookie') return;
   if (typeof window !== 'undefined') {
     localStorage.removeItem('auth-token');
   }
@@ -92,12 +101,16 @@ export async function customFetch(url: string, options: RequestInit = {}): Promi
 export interface AuthProviderProps {
   children: ReactNode;
   apiBaseUrl?: string;
+  tokenStorage?: 'localStorage' | 'cookie';
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
   apiBaseUrl = '/api/auth',
+  tokenStorage = 'localStorage',
 }) => {
+  setTokenStorage(tokenStorage);
+
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => getStoredToken());
   const [isLoading, setIsLoading] = useState(true);
